@@ -134,6 +134,56 @@ class ADAPTAnsatz(Ansatz):
         gradients = [abs(self.ansatz.conj().T @ op.commutator @ self.ansatz) for op in self.operators]
         max_gradient = max(gradients)
         max_operator = self.operators[gradients.index(max_gradient)]
+        # print(max_gradient,max_operator.label)
+
+        if len(self.added_operators) == 0:
+            self.added_operators.append(max_operator)
+        else:
+            if max_operator == self.added_operators[-1]:
+                self.minimum = True
+            else:
+                self.added_operators.append(max_operator)
+
+
+class ADAPTAnsatzNoTrotter(Ansatz):
+
+    def __init__(self, nucleus: Nucleus, ref_state: np.ndarray) -> None:
+        super().__init__(nucleus, ref_state)
+
+        self.added_operators:list[TwoBodyExcitationOperator] = []
+        self.minimum: bool = False
+
+
+    def build_ansatz(self, parameters: list[float]) -> np.ndarray:
+        """Returns the ansatz"""
+
+        ansatz = self.ref_state
+        all_op = parameters[0]*self.added_operators[0].matrix
+        for i in range(1, len(parameters)):
+            all_op += parameters[i]*self.added_operators[i].matrix
+        ansatz = expm(all_op) @ ansatz
+        return ansatz
+    
+    def energy(self, parameters: list[float]) -> float:
+        """Returns the energy of the ansatz"""
+
+        if self.count_fcalls == True:
+            self.fcalls += 1
+        if len(parameters) == 0:
+            return self.ref_state.conj().T @ self.nucleus.H @ self.ref_state
+        else:
+            new_ansatz = self.build_ansatz(parameters)
+            return new_ansatz.conj().T @ self.nucleus.H @ new_ansatz
+
+    def choose_operator(self) -> None:
+        """Selects the next operator based on its gradient and adds it to the list"""
+
+        gradients = []
+        gradients = [abs(self.ansatz.conj().T @ op.commutator @ self.ansatz) for op in self.operators]
+        max_gradient = max(gradients)
+        max_operator = self.operators[gradients.index(max_gradient)]
+        # print(max_gradient,max_operator.label)
+
         if len(self.added_operators) == 0:
             self.added_operators.append(max_operator)
         else:

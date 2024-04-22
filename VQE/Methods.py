@@ -81,9 +81,10 @@ class ADAPTVQE():
         self.energy.append(E0)
         self.rel_error.append(abs((E0 - self.ansatz.nucleus.eig_val[0])/self.ansatz.nucleus.eig_val[0]))
         self.fcalls.append(self.ansatz.fcalls)
-        while self.ansatz.minimum == False:
+        self.ansatz.choose_operator()
+        while self.ansatz.minimum == False and self.fcalls[-1] < 700:
             self.layer_fcalls.append(self.ansatz.fcalls)
-            self.ansatz.choose_operator()
+            print(self.ansatz.fcalls)
             self.parameters.append(0.0)
             self.ansatz.count_fcalls = True
             try:
@@ -93,6 +94,7 @@ class ADAPTVQE():
                 pass
             self.ansatz.count_fcalls = False
             self.ansatz.ansatz = self.ansatz.build_ansatz(self.parameters)
+            self.ansatz.choose_operator()
         
     def callback(self, params: list[float]) -> None:
         """Callback function to store the energy and parameters at each iteration

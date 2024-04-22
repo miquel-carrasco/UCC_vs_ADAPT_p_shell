@@ -9,16 +9,16 @@ from tqdm import tqdm
 
 
 from VQE.Nucleus import Nucleus
-from VQE.Ansatze import UCCAnsatz, ADAPTAnsatz
+from VQE.Ansatze import UCCAnsatz, ADAPTAnsatz, ADAPTAnsatzNoTrotter
 from VQE.Utils import labels_all_combinations
 from VQE.Methods import UCCVQE, OptimizationConvergedException, ADAPTVQE
 
 
-def UCC_vs_adapt():
+def UCC_vs_ADAPT():
     Li6 = Nucleus('Li6', 1)
-    ref_state = np.eye(Li6.d_H)[0]
+    ref_state = np.eye(Li6.d_H)[1]
     
-    ADAPT_ansatz = ADAPTAnsatz(Li6, ref_state)
+    ADAPT_ansatz = ADAPTAnsatzNoTrotter(Li6, ref_state)
     ADAPT_vqe = ADAPTVQE(ADAPT_ansatz, method='SLSQP')
     ADAPT_vqe.run()
     adapt_rel_error = ADAPT_vqe.rel_error
@@ -31,15 +31,18 @@ def UCC_vs_adapt():
     ucc_rel_error = UCC_vqe.rel_error
     ucc_fcalls = UCC_vqe.fcalls
 
+    print(ADAPT_vqe.parameters)
+
     plt.plot(adapt_fcalls, adapt_rel_error, label='ADAPT-VQE')
     plt.plot(ucc_fcalls, ucc_rel_error, label='UCC-VQE')
     plt.vlines(ADAPT_vqe.layer_fcalls, colors='lightgrey',ymin=1e-8,ymax=10, linestyles='dashed')
-    plt.ylim(1e-2, 10)
-    plt.xlim(0, 200)
+    plt.ylim(1e-7, 10)
+    plt.xlim(0, 700)
     plt.yscale('log')
     plt.legend()
 
     plt.show()
+
 
 def UCC_v_performance(method: str, n_times: int) -> None:
     Li6 = Nucleus('Li6', 1)
@@ -108,4 +111,5 @@ def ADAPT_v_performance() -> None:
 
 
 if __name__ == '__main__':
-    UCC_v_performance('COBYLA', 1000)
+    UCC_vs_ADAPT()
+    
