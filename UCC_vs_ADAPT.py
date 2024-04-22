@@ -46,9 +46,12 @@ def UCC_v_performance(method: str, n_times: int) -> None:
     vecs = np.eye(Li6.d_H)
 
     try:
-        output_folder = os.path.join('outputs/v_performance/UCC')
-    except:
+        os.makedirs('outputs/v_performance/UCC')
+    except OSError:
         pass
+    output_folder = os.path.join('outputs/v_performance/UCC')
+
+
     file = open(os.path.join(output_folder, f'{method}_performance_randomt0_ntimes={n_times}.dat'), 'w')
     for n_v,v in enumerate(vecs):
         print(f'{n_v}')
@@ -105,4 +108,4 @@ def ADAPT_v_performance() -> None:
 
 
 if __name__ == '__main__':
-    ADAPT_v_performance()
+    UCC_v_performance('COBYLA', 1000)
