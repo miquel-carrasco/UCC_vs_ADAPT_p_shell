@@ -159,4 +159,4 @@ def ADAPT_table(min_criterion:str = 'Repeated op') -> None:
 
 
 if __name__ == '__main__':
-    UCC_vs_ADAPT()
+    ADAPT_v_performance()
