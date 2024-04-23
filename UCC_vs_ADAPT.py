@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import random
 import os
 from tqdm import tqdm
-
+import pandas as pd
 
 from VQE.Nucleus import Nucleus
 from VQE.Ansatze import UCCAnsatz, ADAPTAnsatz, ADAPTAnsatzNoTrotter
@@ -18,7 +18,7 @@ def UCC_vs_ADAPT():
     Li6 = Nucleus('Li6', 1)
     ref_state = np.eye(Li6.d_H)[1]
     
-    ADAPT_ansatz = ADAPTAnsatzNoTrotter(Li6, ref_state)
+    ADAPT_ansatz = ADAPTAnsatz(Li6, ref_state)
     ADAPT_vqe = ADAPTVQE(ADAPT_ansatz, method='SLSQP')
     ADAPT_vqe.run()
     adapt_rel_error = ADAPT_vqe.rel_error
@@ -31,13 +31,37 @@ def UCC_vs_ADAPT():
     ucc_rel_error = UCC_vqe.rel_error
     ucc_fcalls = UCC_vqe.fcalls
 
-    print(ADAPT_vqe.parameters)
-
     plt.plot(adapt_fcalls, adapt_rel_error, label='ADAPT-VQE')
     plt.plot(ucc_fcalls, ucc_rel_error, label='UCC-VQE')
     plt.vlines(ADAPT_vqe.layer_fcalls, colors='lightgrey',ymin=1e-8,ymax=10, linestyles='dashed')
-    plt.ylim(1e-7, 10)
-    plt.xlim(0, 700)
+    plt.ylim(1e-8, 10)
+    plt.xlim(0, 400)
+    plt.yscale('log')
+    plt.legend()
+
+    plt.show()
+
+def ADAPT_Trotter_vs_NoTrotter():
+    Li6 = Nucleus('Li6', 1)
+    ref_state = np.eye(Li6.d_H)[0]
+
+    Trotter_ansatz = ADAPTAnsatz(Li6, ref_state)
+    Trotter_vqe = ADAPTVQE(Trotter_ansatz, method='SLSQP')
+    Trotter_vqe.run()
+    Trotter_rel_error = Trotter_vqe.rel_error
+    Trotter_fcalls = Trotter_vqe.fcalls
+    
+    ADAPT_ansatz = ADAPTAnsatzNoTrotter(Li6, ref_state)
+    ADAPT_vqe = ADAPTVQE(ADAPT_ansatz, method='SLSQP')
+    ADAPT_vqe.run()
+    adapt_rel_error = ADAPT_vqe.rel_error
+    adapt_fcalls = ADAPT_vqe.fcalls
+
+    plt.plot(adapt_fcalls, adapt_rel_error, label='No Trotter')
+    plt.plot(Trotter_fcalls, Trotter_rel_error, label='Trotter')
+    plt.vlines(ADAPT_vqe.layer_fcalls, colors='lightgrey',ymin=1e-8,ymax=10, linestyles='dashed')
+    plt.ylim(1e-1, 10)
+    plt.xlim(150, 300)
     plt.yscale('log')
     plt.legend()
 
@@ -108,8 +132,31 @@ def ADAPT_v_performance() -> None:
         file.close()
 
 
+def ADAPT_table(min_criterion:str = 'Repeated op') -> None:
+    Li6 = Nucleus('Li6', 1)
+    vecs = np.eye(Li6.d_H)
+    try:
+        os.makedirs('outputs/ADAPT_table')
+    except OSError:
+        pass
+
+    for i,v in enumerate(vecs):
+
+        ansatz = ADAPTAnsatz(Li6, v)
+        vqe = ADAPTVQE(ansatz, method='SLSQP', return_data=True, min_criterion=min_criterion)
+        result = vqe.run()
+        data = {'Operator label': [str(op.label) for op in result[0]],
+                'Operator excitation': [str(op.ijkl) for op in result[0]],
+                'Gradient': [np.linalg.norm(grad) for grad in result[1]],
+                'Final parameters gradient': result[2],
+                'Energy': result[3],
+                'Relative error': result[4],
+                'Function calls': result[5]}
+        df = pd.DataFrame(data)
+        df.to_csv(f'outputs/ADAPT_table/v{i}_ADAPT_table.csv', sep='\t', index=False)
+        #print(f'v{i}', vqe.parameters)
+
 
 
 if __name__ == '__main__':
     UCC_vs_ADAPT()
-    

@@ -20,8 +20,11 @@ class Ansatz():
 class UCCAnsatz(Ansatz):
     """Class to define UCC ansätze"""
 
-    def __init__(self, nucleus: Nucleus, ref_state: np.ndarray, T_n: int = 1, 
-                 cluster_format: str = 'Only acting', operators_list: list[TwoBodyExcitationOperator] = []) -> None:
+    def __init__(self, nucleus: Nucleus, 
+                 ref_state: np.ndarray, 
+                 T_n: int = 1, 
+                 cluster_format: str = 'Only acting', 
+                 operators_list: list[TwoBodyExcitationOperator] = []) -> None:
         
         super().__init__(nucleus, ref_state)
         
@@ -127,22 +130,14 @@ class ADAPTAnsatz(Ansatz):
         new_ansatz = self.build_ansatz(parameters)
         return new_ansatz.conj().T @ self.nucleus.H @ new_ansatz
 
-    def choose_operator(self) -> None:
+    def choose_operator(self) -> tuple[TwoBodyExcitationOperator, float]:
         """Selects the next operator based on its gradient and adds it to the list"""
 
         gradients = []
         gradients = [abs(self.ansatz.conj().T @ op.commutator @ self.ansatz) for op in self.operators]
         max_gradient = max(gradients)
         max_operator = self.operators[gradients.index(max_gradient)]
-        # print(max_gradient,max_operator.label)
-
-        if len(self.added_operators) == 0:
-            self.added_operators.append(max_operator)
-        else:
-            if max_operator == self.added_operators[-1]:
-                self.minimum = True
-            else:
-                self.added_operators.append(max_operator)
+        return max_operator,max_gradient
 
 
 class ADAPTAnsatzNoTrotter(Ansatz):
@@ -175,19 +170,11 @@ class ADAPTAnsatzNoTrotter(Ansatz):
             new_ansatz = self.build_ansatz(parameters)
             return new_ansatz.conj().T @ self.nucleus.H @ new_ansatz
 
-    def choose_operator(self) -> None:
+    def choose_operator(self) -> tuple[TwoBodyExcitationOperator, float]:
         """Selects the next operator based on its gradient and adds it to the list"""
 
         gradients = []
         gradients = [abs(self.ansatz.conj().T @ op.commutator @ self.ansatz) for op in self.operators]
         max_gradient = max(gradients)
         max_operator = self.operators[gradients.index(max_gradient)]
-        # print(max_gradient,max_operator.label)
-
-        if len(self.added_operators) == 0:
-            self.added_operators.append(max_operator)
-        else:
-            if max_operator == self.added_operators[-1]:
-                self.minimum = True
-            else:
-                self.added_operators.append(max_operator)
+        return max_operator,max_gradient

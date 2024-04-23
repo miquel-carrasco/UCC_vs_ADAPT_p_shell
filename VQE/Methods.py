@@ -3,7 +3,7 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 
-from .Nucleus import Nucleus
+from .Nucleus import Nucleus, TwoBodyExcitationOperator
 from .Ansatze import UCCAnsatz, ADAPTAnsatz
 
 class OptimizationConvergedException(Exception):
@@ -13,12 +13,12 @@ class UCCVQE():
     """Class to define the Variational Quantum Eigensolver (VQE) algorithm"""
 
     def __init__(self, Ansatz: UCCAnsatz, init_param: list[float], 
-                 precision: float = 1e-6, method: str = 'SLSQP') -> None:
+                 test_threshold: float = 1e-6, method: str = 'SLSQP') -> None:
         
         self.ansatz = Ansatz
         self.method = method
         self.parameters = init_param
-        self.precision = precision
+        self.test_threshold = test_threshold
         self.fcalls = []
         self.energy = []
         self.rel_error = []
@@ -44,7 +44,7 @@ class UCCVQE():
     
     def callback(self, params: list[float]) -> None:
         """Callback function to store the energy and parameters at each iteration
-        and stop the optimization if the precision is reached."""
+        and stop the optimization if the threshold is reached."""
 
         self.ansatz.count_fcalls = False
         E = self.ansatz.energy(params)
@@ -53,27 +53,45 @@ class UCCVQE():
         self.rel_error.append(abs((E - self.ansatz.nucleus.eig_val[0])/self.ansatz.nucleus.eig_val[0]))
         self.fcalls.append(self.ansatz.fcalls)
         self.final_parameters = params
-        if self.rel_error[-1] < self.precision:
+        if self.rel_error[-1] < self.test_threshold:
             self.convergence = True
             raise OptimizationConvergedException
 
 
 class ADAPTVQE():
 
-    def __init__(self, Ansatz: ADAPTAnsatz, precision: float = 1e-6, method: str = 'SLSQP') -> None:
+    def __init__(self, 
+                 Ansatz: ADAPTAnsatz, 
+                 test_threshold: float = 1e-6, 
+                 method: str = 'SLSQP',
+                 min_criterion: str = 'Repeated op',
+                 return_data: bool = False) -> None:
         
         self.nucleus = Ansatz.nucleus
         self.ansatz = Ansatz
-        self.method = method
-        self.precision = precision
+        self.test_threshold = test_threshold
         self.fcalls = []
         self.energy = []
         self.rel_error = []
         self.parameters = []
         self.convergence = False
         self.layer_fcalls = []
+        self.return_data = return_data
+
+        try:
+            self.method = method
+        except method not in ['SLSQP', 'COBYLA','L-BFGS-B','BFGS']:
+            print('Invalid optimization method')
+            exit()
+
+        try:
+            self.min_criterion = min_criterion
+        except min_criterion not in ['Repeated op', 'Gradient','None']:
+            print('Invalid minimum criterion. Choose between "Repeated op", "Gradient" and "None"')
+            exit()
     
-    def run(self) -> float:
+    def run(self) -> tuple[list[TwoBodyExcitationOperator], list[float],list[float], 
+                           list[float], list[float], list[int]]:
         """Runs the ADAPT VQE algorithm"""
 
         self.ansatz.fcalls = 0
@@ -81,24 +99,50 @@ class ADAPTVQE():
         self.energy.append(E0)
         self.rel_error.append(abs((E0 - self.ansatz.nucleus.eig_val[0])/self.ansatz.nucleus.eig_val[0]))
         self.fcalls.append(self.ansatz.fcalls)
-        self.ansatz.choose_operator()
-        while self.ansatz.minimum == False and self.fcalls[-1] < 700:
+        first_operator,first_gradient = self.ansatz.choose_operator()
+        operator_layers = [first_operator]
+        gradient_layers = [first_gradient]
+        opt_grad_layers = []
+        energy_layers = [E0]
+        rel_error_layers = [self.rel_error[-1]]
+        fcalls_layers = [self.fcalls[-1]]
+        self.ansatz.added_operators.append(first_operator)
+        while self.ansatz.minimum == False and self.fcalls[-1] < 1000:
             self.layer_fcalls.append(self.ansatz.fcalls)
-            print(self.ansatz.fcalls)
             self.parameters.append(0.0)
             self.ansatz.count_fcalls = True
             try:
                 result = minimize(self.ansatz.energy, self.parameters, method=self.method, callback=self.callback)
                 self.parameters = list(result.x)
+                if self.return_data:
+                    opt_grad= np.linalg.norm(result.jac)
+                    opt_grad_layers.append(opt_grad)
+                self.ansatz.count_fcalls = False
+                self.ansatz.ansatz = self.ansatz.build_ansatz(self.parameters)
+                next_operator,next_gradient = self.ansatz.choose_operator()
+                if self.min_criterion == 'Repeated op' and next_operator == self.ansatz.added_operators[-1]:
+                    self.ansatz.minimum = True
+                elif self.min_criterion == 'Gradient' and opt_grad < 1e-6:
+                    self.ansatz.minimum = True
+                else:
+                    self.ansatz.added_operators.append(next_operator)
+                    operator_layers.append(next_operator)
+                    gradient_layers.append(next_gradient)
+                    energy_layers.append(self.energy[-1])
+                    rel_error_layers.append(self.rel_error[-1])
+                    fcalls_layers.append(self.fcalls[-1])
             except OptimizationConvergedException:
-                pass
-            self.ansatz.count_fcalls = False
-            self.ansatz.ansatz = self.ansatz.build_ansatz(self.parameters)
-            self.ansatz.choose_operator()
+                if self.return_data:
+                    opt_grad_layers.append(0.0)
+        if self.min_criterion == 'None' and self.ansatz.minimum == False:
+            self.ansatz.minimum = True
+            opt_grad_layers.append(0.0)
+        if self.return_data:
+            return operator_layers, gradient_layers, opt_grad_layers, energy_layers, rel_error_layers, fcalls_layers
         
     def callback(self, params: list[float]) -> None:
         """Callback function to store the energy and parameters at each iteration
-        and stop the optimization if the precision is reached."""
+        and stop the optimization if the threshold is reached."""
 
         self.ansatz.count_fcalls = False
         E = self.ansatz.energy(params)
@@ -106,7 +150,7 @@ class ADAPTVQE():
         self.energy.append(E)
         self.rel_error.append(abs((E - self.ansatz.nucleus.eig_val[0])/self.ansatz.nucleus.eig_val[0]))
         self.fcalls.append(self.ansatz.fcalls)
-        if self.rel_error[-1] < self.precision:
+        if self.rel_error[-1] < self.test_threshold:
             self.convergence = True
             self.ansatz.minimum = True
             self.parameters = params
