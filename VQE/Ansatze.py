@@ -14,6 +14,7 @@ class Ansatz():
         self.operators: list[TwoBodyExcitationOperator] = self.nucleus.operators
 
         self.fcalls = 0
+        self.op_applied=0
         self.count_fcalls: bool = False
         self.ansatz: np.ndarray = self.ref_state
 

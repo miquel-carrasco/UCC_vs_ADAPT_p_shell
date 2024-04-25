@@ -71,6 +71,8 @@ class ADAPTVQE():
         self.ansatz = Ansatz
         self.test_threshold = test_threshold
         self.fcalls = []
+        self.tot_operators=0
+        self.tot_operators_layers=[]
         self.energy = []
         self.rel_error = []
         self.parameters = []
@@ -99,6 +101,8 @@ class ADAPTVQE():
         self.energy.append(E0)
         self.rel_error.append(abs((E0 - self.ansatz.nucleus.eig_val[0])/self.ansatz.nucleus.eig_val[0]))
         self.fcalls.append(self.ansatz.fcalls)
+        self.tot_operators+=self.fcalls[-1]*len(self.ansatz.added_operators)
+        self.tot_operators_layers.append(self.tot_operators)
         first_operator,first_gradient = self.ansatz.choose_operator()
         operator_layers = [first_operator]
         gradient_layers = [first_gradient]
@@ -150,6 +154,8 @@ class ADAPTVQE():
         self.energy.append(E)
         self.rel_error.append(abs((E - self.ansatz.nucleus.eig_val[0])/self.ansatz.nucleus.eig_val[0]))
         self.fcalls.append(self.ansatz.fcalls)
+        self.tot_operators+=(self.fcalls[-1]-self.fcalls[-2])*len(self.ansatz.added_operators)
+        self.tot_operators_layers.append(self.tot_operators)
         if self.rel_error[-1] < self.test_threshold:
             self.convergence = True
             self.ansatz.minimum = True

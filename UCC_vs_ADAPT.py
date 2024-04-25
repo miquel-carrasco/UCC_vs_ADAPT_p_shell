@@ -14,12 +14,12 @@ from VQE.Utils import labels_all_combinations
 from VQE.Methods import UCCVQE, OptimizationConvergedException, ADAPTVQE
 
 
-def UCC_vs_ADAPT():
+def UCC_vs_ADAPT(n_v: int) -> None:
     Li6 = Nucleus('Li6', 1)
-    ref_state = np.eye(Li6.d_H)[1]
+    ref_state = np.eye(Li6.d_H)[n_v]
     
     ADAPT_ansatz = ADAPTAnsatz(Li6, ref_state)
-    ADAPT_vqe = ADAPTVQE(ADAPT_ansatz, method='SLSQP')
+    ADAPT_vqe = ADAPTVQE(ADAPT_ansatz, method='SLSQP',min_criterion='None')
     ADAPT_vqe.run()
     adapt_rel_error = ADAPT_vqe.rel_error
     adapt_fcalls = ADAPT_vqe.fcalls
@@ -31,39 +31,19 @@ def UCC_vs_ADAPT():
     ucc_rel_error = UCC_vqe.rel_error
     ucc_fcalls = UCC_vqe.fcalls
 
+    print(ADAPT_vqe.tot_operators_layers)
+    print([i*9 for i in UCC_vqe.fcalls])
+
     plt.plot(adapt_fcalls, adapt_rel_error, label='ADAPT-VQE')
     plt.plot(ucc_fcalls, ucc_rel_error, label='UCC-VQE')
     plt.vlines(ADAPT_vqe.layer_fcalls, colors='lightgrey',ymin=1e-8,ymax=10, linestyles='dashed')
-    plt.ylim(1e-8, 10)
-    plt.xlim(0, 400)
+    plt.ylim(1e-7, 10)
+    plt.xlim(0, 500)
     plt.yscale('log')
+    plt.xlabel('Function calls')
+    plt.ylabel('Relative error')
     plt.legend()
-
-    plt.show()
-
-def ADAPT_Trotter_vs_NoTrotter():
-    Li6 = Nucleus('Li6', 1)
-    ref_state = np.eye(Li6.d_H)[0]
-
-    Trotter_ansatz = ADAPTAnsatz(Li6, ref_state)
-    Trotter_vqe = ADAPTVQE(Trotter_ansatz, method='SLSQP')
-    Trotter_vqe.run()
-    Trotter_rel_error = Trotter_vqe.rel_error
-    Trotter_fcalls = Trotter_vqe.fcalls
-    
-    ADAPT_ansatz = ADAPTAnsatzNoTrotter(Li6, ref_state)
-    ADAPT_vqe = ADAPTVQE(ADAPT_ansatz, method='SLSQP')
-    ADAPT_vqe.run()
-    adapt_rel_error = ADAPT_vqe.rel_error
-    adapt_fcalls = ADAPT_vqe.fcalls
-
-    plt.plot(adapt_fcalls, adapt_rel_error, label='No Trotter')
-    plt.plot(Trotter_fcalls, Trotter_rel_error, label='Trotter')
-    plt.vlines(ADAPT_vqe.layer_fcalls, colors='lightgrey',ymin=1e-8,ymax=10, linestyles='dashed')
-    plt.ylim(1e-1, 10)
-    plt.xlim(150, 300)
-    plt.yscale('log')
-    plt.legend()
+    plt.title(f'UCC vs ADAPT-VQE (v{n_v})')
 
     plt.show()
 
@@ -126,9 +106,9 @@ def ADAPT_v_performance() -> None:
             vqe = ADAPTVQE(ADAPT_ansatz, method=method)
             vqe.run()
             if vqe.convergence:
-                file.write(f'v{n_v}'+'\t'+f'{vqe.fcalls[-1]}'+'\t'+'CONVERGED'+'\n')
+                file.write(f'v{n_v}'+'\t'+f'{vqe.tot_operators}'+'\t'+'CONVERGED'+'\n')
             else:
-                file.write(f'v{n_v}'+'\t'+f'{vqe.fcalls[-1]}'+'\t'+'FAILED'+'\n')
+                file.write(f'v{n_v}'+'\t'+f'{vqe.tot_operators}'+'\t'+'FAILED'+'\n')
         file.close()
 
 
@@ -141,9 +121,8 @@ def ADAPT_table(min_criterion:str = 'Repeated op') -> None:
         pass
 
     for i,v in enumerate(vecs):
-
-        ansatz = ADAPTAnsatz(Li6, v)
-        vqe = ADAPTVQE(ansatz, method='SLSQP', return_data=True, min_criterion=min_criterion)
+        ansatz = ADAPTAnsatz(Li6, vecs[i])
+        vqe = ADAPTVQE(ansatz, method='L-BFGS-B', return_data=True, min_criterion=min_criterion)
         result = vqe.run()
         data = {'Operator label': [str(op.label) for op in result[0]],
                 'Operator excitation': [str(op.ijkl) for op in result[0]],
@@ -154,9 +133,11 @@ def ADAPT_table(min_criterion:str = 'Repeated op') -> None:
                 'Function calls': result[5]}
         df = pd.DataFrame(data)
         df.to_csv(f'outputs/ADAPT_table/v{i}_ADAPT_table.csv', sep='\t', index=False)
-        #print(f'v{i}', vqe.parameters)
+
 
 
 
 if __name__ == '__main__':
+    #UCC_vs_ADAPT(n_v=1)
+    #ADAPT_table(min_criterion='None')
     ADAPT_v_performance()

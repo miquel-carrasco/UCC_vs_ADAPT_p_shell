@@ -66,8 +66,8 @@ for i,f in enumerate(UCC_files):
     mean=[]
     std=[]
     for j,d in enumerate(data):          
-        mean.append(float(d[1]))
-        std.append(float(d[2]))
+        mean.append(float(d[1])*9)
+        std.append(float(d[2])*9)
     x=np.arange(len(v))+dodge[i]
     ax2.errorbar(x,mean,yerr=std,marker=markers[i],color=colors[i],linestyle='none',label=f.split('_')[0],zorder=5)
 
@@ -96,7 +96,7 @@ ax1.set_xlabel(r'State ($|j_p, m_p,j_n, m_n\rangle$)')
 ax1.set_ylabel('Infidelity')
 fig.legend(loc=(0.2,0.67),framealpha=1, frameon=True,edgecolor='black',fancybox=False)
 ax2.set_ylabel('Function calls')
-ax2.set_ylim(0,1210)
+ax2.set_ylim(0,8010)
 
 try:
     os.makedirs('figures')
