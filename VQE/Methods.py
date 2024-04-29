@@ -65,6 +65,7 @@ class ADAPTVQE():
                  test_threshold: float = 1e-6, 
                  method: str = 'SLSQP',
                  min_criterion: str = 'Repeated op',
+                 tol: float = 1e-10,
                  return_data: bool = False) -> None:
         
         self.nucleus = Ansatz.nucleus
@@ -78,6 +79,7 @@ class ADAPTVQE():
         self.parameters = []
         self.convergence = False
         self.layer_fcalls = []
+        self.tol = tol
         self.return_data = return_data
 
         try:
@@ -104,22 +106,24 @@ class ADAPTVQE():
         self.tot_operators+=self.fcalls[-1]*len(self.ansatz.added_operators)
         self.tot_operators_layers.append(self.tot_operators)
         first_operator,first_gradient = self.ansatz.choose_operator()
-        operator_layers = [first_operator]
         gradient_layers = [first_gradient]
         opt_grad_layers = []
         energy_layers = [E0]
         rel_error_layers = [self.rel_error[-1]]
         fcalls_layers = [self.fcalls[-1]]
         self.ansatz.added_operators.append(first_operator)
-        while self.ansatz.minimum == False and self.fcalls[-1] < 1000:
+        while self.ansatz.minimum == False and len(self.ansatz.added_operators)<10:
             self.layer_fcalls.append(self.ansatz.fcalls)
             self.parameters.append(0.0)
             self.ansatz.count_fcalls = True
             try:
-                result = minimize(self.ansatz.energy, self.parameters, method=self.method, callback=self.callback)
+                result = minimize(self.ansatz.energy, self.parameters, method=self.method, callback=self.callback,tol=self.tol)
                 self.parameters = list(result.x)
                 if self.return_data:
-                    opt_grad= np.linalg.norm(result.jac)
+                    if self.method!='COBYLA':
+                        opt_grad= np.linalg.norm(result.jac)
+                    else:
+                        opt_grad=0
                     opt_grad_layers.append(opt_grad)
                 self.ansatz.count_fcalls = False
                 self.ansatz.ansatz = self.ansatz.build_ansatz(self.parameters)
@@ -130,19 +134,21 @@ class ADAPTVQE():
                     self.ansatz.minimum = True
                 else:
                     self.ansatz.added_operators.append(next_operator)
-                    operator_layers.append(next_operator)
                     gradient_layers.append(next_gradient)
                     energy_layers.append(self.energy[-1])
                     rel_error_layers.append(self.rel_error[-1])
                     fcalls_layers.append(self.fcalls[-1])
             except OptimizationConvergedException:
                 if self.return_data:
-                    opt_grad_layers.append(0.0)
+                    opt_grad_layers.append('Manually stopped')
+        energy_layers.append(self.energy[-1])
+        rel_error_layers.append(self.rel_error[-1])
+        fcalls_layers.append(self.fcalls[-1])
         if self.min_criterion == 'None' and self.ansatz.minimum == False:
             self.ansatz.minimum = True
-            opt_grad_layers.append(0.0)
+            opt_grad_layers.append('Manually stopped')
         if self.return_data:
-            return operator_layers, gradient_layers, opt_grad_layers, energy_layers, rel_error_layers, fcalls_layers
+            return  gradient_layers, opt_grad_layers, energy_layers, rel_error_layers, fcalls_layers
         
     def callback(self, params: list[float]) -> None:
         """Callback function to store the energy and parameters at each iteration

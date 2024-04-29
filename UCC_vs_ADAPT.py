@@ -14,6 +14,21 @@ from VQE.Utils import labels_all_combinations
 from VQE.Methods import UCCVQE, OptimizationConvergedException, ADAPTVQE
 
 
+params = {'axes.linewidth': 1.4,
+         'axes.labelsize': 16,
+         'axes.titlesize': 18,
+         'axes.linewidth': 1.5,
+         'lines.markeredgecolor': "black",
+     	'lines.linewidth': 1.5,
+         'xtick.labelsize': 11,
+         'ytick.labelsize': 14,
+         "text.usetex": True,
+         "font.family": "serif",
+         "font.serif": ["Palatino"]
+         }
+plt.rcParams.update(params)
+
+
 def UCC_vs_ADAPT(n_v: int) -> None:
     Li6 = Nucleus('Li6', 1)
     ref_state = np.eye(Li6.d_H)[n_v]
@@ -112,7 +127,7 @@ def ADAPT_v_performance() -> None:
         file.close()
 
 
-def ADAPT_table(min_criterion:str = 'Repeated op') -> None:
+def ADAPT_table(method: str = 'SLSQP', min_criterion:str = 'Repeated op', tol: float = 1e-10) -> None:
     Li6 = Nucleus('Li6', 1)
     vecs = np.eye(Li6.d_H)
     try:
@@ -121,23 +136,49 @@ def ADAPT_table(min_criterion:str = 'Repeated op') -> None:
         pass
 
     for i,v in enumerate(vecs):
-        ansatz = ADAPTAnsatz(Li6, vecs[i])
-        vqe = ADAPTVQE(ansatz, method='L-BFGS-B', return_data=True, min_criterion=min_criterion)
+        ansatz = ADAPTAnsatz(Li6, v)
+        vqe = ADAPTVQE(ansatz,
+                       method = method,
+                       return_data = True,
+                       min_criterion = min_criterion,
+                       tol = tol)
         result = vqe.run()
-        data = {'Operator label': [str(op.label) for op in result[0]],
-                'Operator excitation': [str(op.ijkl) for op in result[0]],
-                'Gradient': [np.linalg.norm(grad) for grad in result[1]],
-                'Final parameters gradient': result[2],
-                'Energy': result[3],
-                'Relative error': result[4],
-                'Function calls': result[5]}
+        data = {'Operator label': ['None'] + [str(op.label) for op in ansatz.added_operators],
+                'Operator excitation': ['None'] + [str(op.ijkl) for op in ansatz.added_operators],
+                'Gradient': ['None'] + [np.linalg.norm(grad) for grad in result[0]],
+                'Final parameters gradient': ['None'] + result[1],
+                'Energy': result[2],
+                'Relative error': result[3],
+                'Function calls': result[4]}
         df = pd.DataFrame(data)
         df.to_csv(f'outputs/ADAPT_table/v{i}_ADAPT_table.csv', sep='\t', index=False)
+
+def ADAPT_all_v_tracks(method: str = 'SLSQP', min_criterion: str = 'Repeated op', tol: float = 1e-10) -> None:
+    Li6 = Nucleus('Li6', 1)
+    vecs = np.eye(Li6.d_H)
+
+    for i,v in enumerate(vecs):
+        ansatz = ADAPTAnsatz(Li6, v)
+        vqe = ADAPTVQE(ansatz, method=method, min_criterion=min_criterion)
+        result = vqe.run()
+        rel_error = vqe.rel_error
+        fcalls = vqe.fcalls
+        plt.plot(fcalls, rel_error, label=f'$v_{i}$')
+    plt.yscale('log')
+    plt.xlabel('Function calls')
+    plt.ylabel('Relative error')
+    plt.xlim(0, 610)
+    plt.legend()
+
+    plt.show()
+
+
 
 
 
 
 if __name__ == '__main__':
     #UCC_vs_ADAPT(n_v=1)
-    #ADAPT_table(min_criterion='None')
-    ADAPT_v_performance()
+    #ADAPT_table(method= 'SLSQP', min_criterion='None',tol=1e-15)
+    #ADAPT_v_performance()
+    ADAPT_all_v_tracks()
