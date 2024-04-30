@@ -80,6 +80,7 @@ class ADAPTVQE():
         self.convergence = False
         self.layer_fcalls = []
         self.tol = tol
+        self.state_layers = []
         self.return_data = return_data
 
         try:
@@ -111,6 +112,7 @@ class ADAPTVQE():
         energy_layers = [E0]
         rel_error_layers = [self.rel_error[-1]]
         fcalls_layers = [self.fcalls[-1]]
+        self.state_layers.append(self.ansatz.ansatz)
         self.ansatz.added_operators.append(first_operator)
         while self.ansatz.minimum == False and len(self.ansatz.added_operators)<10:
             self.layer_fcalls.append(self.ansatz.fcalls)
@@ -141,6 +143,7 @@ class ADAPTVQE():
             except OptimizationConvergedException:
                 if self.return_data:
                     opt_grad_layers.append('Manually stopped')
+            self.state_layers.append(self.ansatz.ansatz)
         energy_layers.append(self.energy[-1])
         rel_error_layers.append(self.rel_error[-1])
         fcalls_layers.append(self.fcalls[-1])

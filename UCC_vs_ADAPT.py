@@ -34,14 +34,14 @@ def UCC_vs_ADAPT(n_v: int) -> None:
     ref_state = np.eye(Li6.d_H)[n_v]
     
     ADAPT_ansatz = ADAPTAnsatz(Li6, ref_state)
-    ADAPT_vqe = ADAPTVQE(ADAPT_ansatz, method='SLSQP',min_criterion='None')
+    ADAPT_vqe = ADAPTVQE(ADAPT_ansatz, method='L-BFGS-B',min_criterion='None')
     ADAPT_vqe.run()
     adapt_rel_error = ADAPT_vqe.rel_error
     adapt_fcalls = ADAPT_vqe.fcalls
 
     UCC_ansatz = UCCAnsatz(Li6, ref_state)
     init_param = np.zeros(len(UCC_ansatz.operators))
-    UCC_vqe = UCCVQE(UCC_ansatz,init_param=init_param, method='SLSQP')
+    UCC_vqe = UCCVQE(UCC_ansatz,init_param=init_param, method='L-BFGS-B')
     UCC_vqe.run()
     ucc_rel_error = UCC_vqe.rel_error
     ucc_fcalls = UCC_vqe.fcalls
@@ -53,7 +53,7 @@ def UCC_vs_ADAPT(n_v: int) -> None:
     plt.plot(ucc_fcalls, ucc_rel_error, label='UCC-VQE')
     plt.vlines(ADAPT_vqe.layer_fcalls, colors='lightgrey',ymin=1e-8,ymax=10, linestyles='dashed')
     plt.ylim(1e-7, 10)
-    plt.xlim(0, 500)
+    plt.xlim(0, 700)
     plt.yscale('log')
     plt.xlabel('Function calls')
     plt.ylabel('Relative error')
@@ -173,6 +173,56 @@ def ADAPT_all_v_tracks(method: str = 'SLSQP', min_criterion: str = 'Repeated op'
     plt.show()
 
 
+def ADAPT_plot_evolution():
+    params = {'axes.linewidth': 1.4,
+         'axes.labelsize': 16,
+         'axes.titlesize': 15,
+         'axes.linewidth': 1.5,
+         'lines.markeredgecolor': "black",
+     	'lines.linewidth': 1.5,
+         'xtick.labelsize': 11,
+         'ytick.labelsize': 14,
+         "text.usetex": True,
+         "font.family": "serif",
+         "font.serif": ["Palatino"]
+         }
+    plt.rcParams.update(params)
+
+
+    Li6 = Nucleus('Li6', 1)
+    vecs = np.eye(Li6.d_H)
+
+    try:
+        os.makedirs('figures/ADAPT_evolution')
+    except OSError:
+        pass
+
+    for j,v in enumerate(vecs):    
+        ansatz = ADAPTAnsatz(Li6, v)
+        vqe = ADAPTVQE(ansatz, method='SLSQP', min_criterion='None')
+        vqe.run()
+        state_layers = vqe.state_layers
+
+        nrows = int(np.ceil(np.sqrt(len(state_layers))))
+        ncols = int(np.ceil(len(state_layers) / nrows))
+
+        fig, axs = plt.subplots(nrows, ncols, figsize=(8,8))
+        plt.subplots_adjust(hspace=0.5)
+
+        for i, state in enumerate(state_layers):
+            row = i // ncols
+            col = i % ncols
+            axs[row, col].bar(range(len(state)), np.abs(state))
+            if i == 0:
+                axs[row, col].set_title('Reference state')
+            else:
+                ijkl = ansatz.added_operators[i-1].ijkl
+                axs[row, col].set_title(r'$T^{%d \; %d}_{%d \; %d}$'%(ijkl[0], ijkl[1], ijkl[2], ijkl[3]))
+        
+        fig.savefig(f'figures/ADAPT_evolution/v{j}_ADAPT_evolution.pdf', bbox_inches='tight')
+        plt.close()
+
+
 
 
 
@@ -181,4 +231,5 @@ if __name__ == '__main__':
     #UCC_vs_ADAPT(n_v=1)
     #ADAPT_table(method= 'SLSQP', min_criterion='None',tol=1e-15)
     #ADAPT_v_performance()
-    ADAPT_all_v_tracks()
+    #ADAPT_all_v_tracks()
+    ADAPT_plot_evolution()

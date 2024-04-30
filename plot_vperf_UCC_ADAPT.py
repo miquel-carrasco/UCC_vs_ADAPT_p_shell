@@ -95,7 +95,7 @@ ax1.set_title(f'Overall UCC vs ADAPT performance')
 ax1.set_xlabel(r'State ($|j_p, m_p,j_n, m_n\rangle$)')
 ax1.set_ylabel('Infidelity')
 fig.legend(loc=(0.2,0.67),framealpha=1, frameon=True,edgecolor='black',fancybox=False)
-ax2.set_ylabel('Function calls')
+ax2.set_ylabel('Gate count')
 ax2.set_ylim(0,8010)
 
 try:
