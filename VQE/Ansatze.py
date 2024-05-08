@@ -129,7 +129,7 @@ class ADAPTAnsatz(Ansatz):
         if self.count_fcalls == True:
             self.fcalls += 1
         new_ansatz = self.build_ansatz(parameters)
-        return 1000*new_ansatz.conj().T @ self.nucleus.H @ new_ansatz
+        return new_ansatz.conj().T @ self.nucleus.H @ new_ansatz
 
     def choose_operator(self) -> tuple[TwoBodyExcitationOperator, float]:
         """Selects the next operator based on its gradient and adds it to the list"""
