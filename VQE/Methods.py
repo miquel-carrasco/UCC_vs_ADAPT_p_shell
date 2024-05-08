@@ -62,15 +62,21 @@ class ADAPTVQE():
 
     def __init__(self, 
                  Ansatz: ADAPTAnsatz, 
-                 test_threshold: float = 1e-6, 
+                 test_threshold: float = 1e-6,
+                 stop_at_threshold: bool = True, 
                  method: str = 'SLSQP',
                  min_criterion: str = 'Repeated op',
-                 tol: float = 1e-10,
+                 ftol: float = 1e-10,
+                 gtol: float = 1e-10,
+                 rhoend: float = 1e-10,
+                 tol_method: str = 'Manual',
+                 max_layers: int = 15,
                  return_data: bool = False) -> None:
         
         self.nucleus = Ansatz.nucleus
         self.ansatz = Ansatz
         self.test_threshold = test_threshold
+        self.stop_at_threshold = stop_at_threshold
         self.fcalls = []
         self.tot_operators=0
         self.tot_operators_layers=[]
@@ -79,8 +85,8 @@ class ADAPTVQE():
         self.parameters = []
         self.convergence = False
         self.layer_fcalls = []
-        self.tol = tol
         self.state_layers = []
+        self.max_layers = max_layers
         self.return_data = return_data
 
         try:
@@ -88,11 +94,25 @@ class ADAPTVQE():
         except method not in ['SLSQP', 'COBYLA','L-BFGS-B','BFGS']:
             print('Invalid optimization method')
             exit()
+        
+        self.options={}
+        if self.method in ['SLSQP','L-BFGS-B']:
+            self.options.setdefault('ftol',ftol)
+        if self.method in ['L-BFGS-B','BFGS']:
+            self.options.setdefault('gtol',gtol)
+        if self.method == 'COBYLA':
+            self.options.setdefault('tol',rhoend)
 
         try:
             self.min_criterion = min_criterion
         except min_criterion not in ['Repeated op', 'Gradient','None']:
             print('Invalid minimum criterion. Choose between "Repeated op", "Gradient" and "None"')
+            exit()
+
+        try:
+            self.tol_method = tol_method
+        except tol_method not in ['Manual', 'Automatic']:
+            print('Invalid tolerance method. Choose between "Manual" and "Automatic"')
             exit()
     
     def run(self) -> tuple[list[TwoBodyExcitationOperator], list[float],list[float], 
@@ -114,12 +134,18 @@ class ADAPTVQE():
         fcalls_layers = [self.fcalls[-1]]
         self.state_layers.append(self.ansatz.ansatz)
         self.ansatz.added_operators.append(first_operator)
-        while self.ansatz.minimum == False and len(self.ansatz.added_operators)<10:
+        while self.ansatz.minimum == False and len(self.ansatz.added_operators)<=self.max_layers:
+            if self.tol_method == 'Automatic':    
+                self.tol = gradient_layers[-1]*1e-4
             self.layer_fcalls.append(self.ansatz.fcalls)
             self.parameters.append(0.0)
             self.ansatz.count_fcalls = True
             try:
-                result = minimize(self.ansatz.energy, self.parameters, method=self.method, callback=self.callback,tol=self.tol)
+                result = minimize(self.ansatz.energy,
+                                  self.parameters,
+                                  method=self.method,
+                                  callback=self.callback,
+                                  options=self.options)
                 self.parameters = list(result.x)
                 if self.return_data:
                     if self.method!='COBYLA':
@@ -165,7 +191,7 @@ class ADAPTVQE():
         self.fcalls.append(self.ansatz.fcalls)
         self.tot_operators+=(self.fcalls[-1]-self.fcalls[-2])*len(self.ansatz.added_operators)
         self.tot_operators_layers.append(self.tot_operators)
-        if self.rel_error[-1] < self.test_threshold:
+        if self.rel_error[-1] < self.test_threshold and self.stop_at_threshold:
             self.convergence = True
             self.ansatz.minimum = True
             self.parameters = params
