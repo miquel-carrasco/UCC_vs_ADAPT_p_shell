@@ -436,7 +436,7 @@ class ADAPTVQE(VQE):
             self.parameters = param
             raise OptimizationConvergedException
     
-    def callback_one_step(self, params: float, n_layers) -> None:
+    def callback_n_layers(self, params: float, n_layers) -> None:
         """Callback function to store the energy and parameters at each iteration
         and stop the optimization if the threshold is reached."""
 
