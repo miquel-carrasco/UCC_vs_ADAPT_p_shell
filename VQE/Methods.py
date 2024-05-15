@@ -9,21 +9,67 @@ from .Ansatze import UCCAnsatz, ADAPTAnsatz
 class OptimizationConvergedException(Exception):
     pass
 
-class UCCVQE():
+
+class VQE():
     """Class to define the Variational Quantum Eigensolver (VQE) algorithm"""
 
-    def __init__(self, Ansatz: UCCAnsatz, init_param: list[float], 
-                 test_threshold: float = 1e-6, method: str = 'SLSQP') -> None:
-        
-        self.ansatz = Ansatz
+    def __init__(self, test_threshold: float = 1e-6,
+               method: str = 'SLSQP',
+               ftol: float = 1e-7,
+               gtol: float = 1e-3,
+               rhoend: float = 1e-5,
+               stop_at_threshold: bool = True) -> None:
+
         self.method = method
-        self.parameters = init_param
         self.test_threshold = test_threshold
+        self.stop_at_threshold = stop_at_threshold
         self.fcalls = []
         self.energy = []
         self.rel_error = []
-        self.final_parameters = []
-        self.convergence = False
+        self.success = False 
+
+        try:
+            self.method = method
+        except method not in ['SLSQP', 'COBYLA','L-BFGS-B','BFGS']:
+            print('Invalid optimization method')
+            exit()
+        
+        self.options={}
+        if self.method in ['SLSQP','L-BFGS-B']:
+            self.options.setdefault('ftol',ftol)
+        if self.method in ['L-BFGS-B','BFGS']:
+            self.options.setdefault('gtol',gtol)
+        if self.method == 'COBYLA':
+            self.options.setdefault('tol',rhoend)
+
+    def update_options(self,ftol,gtol,rhoend) -> None:
+        """Update the optimization options"""
+
+        if self.method in ['SLSQP','L-BFGS-B']:
+            self.options['ftol']=ftol
+        if self.method in ['L-BFGS-B','BFGS']:
+            self.options['gtol']=gtol
+        if self.method == 'COBYLA':
+            self.options['rhoend']=rhoend
+
+
+class UCCVQE(VQE):
+
+    def __init__(self, Ansatz: UCCAnsatz,
+                 init_param: list[float],
+                 test_threshold: float = 1e-6,
+                 method: str = 'SLSQP',
+                 ftol: float = 1e-7,
+                 gtol: float = 1e-3,
+                 rhoend: float = 1e-5,
+                 stop_at_threshold: bool = True) -> None:
+        
+        super().__init__(test_threshold=test_threshold, method=method, ftol=ftol,
+                         gtol=gtol, rhoend=rhoend, stop_at_threshold=stop_at_threshold)
+        
+        self.ansatz = Ansatz
+        self.nucleus = Ansatz.nucleus
+        self.parameters = init_param
 
     
     def run(self) -> float:
@@ -54,18 +100,18 @@ class UCCVQE():
         self.fcalls.append(self.ansatz.fcalls)
         self.final_parameters = params
         if self.rel_error[-1] < self.test_threshold:
-            self.convergence = True
+            self.success = True
             raise OptimizationConvergedException
 
 
-class ADAPTVQE():
+class ADAPTVQE(VQE):
 
     def __init__(self, 
-                 Ansatz: ADAPTAnsatz, 
-                 test_threshold: float = 1e-6,
-                 stop_at_threshold: bool = True, 
+                 Ansatz: ADAPTAnsatz,
                  method: str = 'SLSQP',
-                 min_criterion: str = 'Repeated op',
+                 conv_criterion: str = 'Repeated op',
+                 test_threshold: float = 1e-6,
+                 stop_at_threshold: bool = True,
                  ftol: float = 1e-10,
                  gtol: float = 1e-10,
                  rhoend: float = 1e-10,
@@ -73,39 +119,21 @@ class ADAPTVQE():
                  max_layers: int = 15,
                  return_data: bool = False) -> None:
         
-        self.nucleus = Ansatz.nucleus
+        super().__init__(test_threshold, method, ftol, gtol, rhoend, stop_at_threshold)
         self.ansatz = Ansatz
-        self.test_threshold = test_threshold
-        self.stop_at_threshold = stop_at_threshold
-        self.fcalls = []
+        self.nucleus = Ansatz.nucleus
+        self.parameters = []
         self.tot_operators=0
         self.tot_operators_layers=[]
-        self.energy = []
-        self.rel_error = []
-        self.parameters = []
-        self.convergence = False
         self.layer_fcalls = []
         self.state_layers = []
+        self.parameter_layers = []
         self.max_layers = max_layers
         self.return_data = return_data
 
         try:
-            self.method = method
-        except method not in ['SLSQP', 'COBYLA','L-BFGS-B','BFGS']:
-            print('Invalid optimization method')
-            exit()
-        
-        self.options={}
-        if self.method in ['SLSQP','L-BFGS-B']:
-            self.options.setdefault('ftol',ftol)
-        if self.method in ['L-BFGS-B','BFGS']:
-            self.options.setdefault('gtol',gtol)
-        if self.method == 'COBYLA':
-            self.options.setdefault('tol',rhoend)
-
-        try:
-            self.min_criterion = min_criterion
-        except min_criterion not in ['Repeated op', 'Gradient','None']:
+            self.conv_criterion = conv_criterion
+        except conv_criterion not in ['Repeated op', 'Gradient','None']:
             print('Invalid minimum criterion. Choose between "Repeated op", "Gradient" and "None"')
             exit()
 
@@ -126,17 +154,23 @@ class ADAPTVQE():
         self.fcalls.append(self.ansatz.fcalls)
         self.tot_operators+=self.fcalls[-1]*len(self.ansatz.added_operators)
         self.tot_operators_layers.append(self.tot_operators)
-        first_operator,first_gradient = self.ansatz.choose_operator()
-        gradient_layers = [first_gradient]
+        next_operator,next_gradient = self.ansatz.choose_operator()
+        gradient_layers = []
         opt_grad_layers = []
         energy_layers = [E0]
         rel_error_layers = [self.rel_error[-1]]
         fcalls_layers = [self.fcalls[-1]]
         self.state_layers.append(self.ansatz.ansatz)
-        self.ansatz.added_operators.append(first_operator)
+
         while self.ansatz.minimum == False and len(self.ansatz.added_operators)<=self.max_layers:
+            self.ansatz.added_operators.append(next_operator)
+            gradient_layers.append(next_gradient)
+            self.parameter_layers.append([])
             if self.tol_method == 'Automatic':    
-                self.tol = gradient_layers[-1]*1e-4
+                ftol = gradient_layers[-1]*1e-6
+                gtol = gradient_layers[-1]*1e-2
+                rhoend = gradient_layers[-1]*1e-2
+                self.update_options(ftol,gtol,rhoend)
             self.layer_fcalls.append(self.ansatz.fcalls)
             self.parameters.append(0.0)
             self.ansatz.count_fcalls = True
@@ -156,9 +190,117 @@ class ADAPTVQE():
                 self.ansatz.count_fcalls = False
                 self.ansatz.ansatz = self.ansatz.build_ansatz(self.parameters)
                 next_operator,next_gradient = self.ansatz.choose_operator()
-                if self.min_criterion == 'Repeated op' and next_operator == self.ansatz.added_operators[-1]:
+                if self.conv_criterion == 'Repeated op' and next_operator == self.ansatz.added_operators[-1]:
                     self.ansatz.minimum = True
-                elif self.min_criterion == 'Gradient' and opt_grad < 1e-6:
+                elif self.conv_criterion == 'Gradient' and opt_grad < 1e-6:
+                    self.ansatz.minimum = True
+                else:
+                    energy_layers.append(self.energy[-1])
+                    rel_error_layers.append(self.rel_error[-1])
+                    fcalls_layers.append(self.fcalls[-1])
+            except OptimizationConvergedException:
+                if self.return_data:
+                    opt_grad_layers.append('Manually stopped')
+            self.state_layers.append(self.ansatz.ansatz)
+            for a in range(len(self.parameters)):
+                self.parameter_layers[a].append(self.parameters[a])
+
+        energy_layers.append(self.energy[-1])
+        rel_error_layers.append(self.rel_error[-1])
+        fcalls_layers.append(self.fcalls[-1])
+        if self.conv_criterion == 'None' and self.ansatz.minimum == False:
+            self.ansatz.minimum = True
+            opt_grad_layers.append('Manually stopped')
+        if self.return_data:
+            return  gradient_layers, opt_grad_layers, energy_layers, rel_error_layers, fcalls_layers
+        
+    
+    def run_one_step(self, final_run: bool = True) -> tuple[list[TwoBodyExcitationOperator],list[float],list[float],
+                                                      list[float], list[float], list[int]]:
+        """Runs the ADAPT VQE algorithm one step at a time"""
+
+        self.ansatz.fcalls = 0
+        E0 = self.ansatz.energy(self.parameters)
+        self.energy.append(E0)
+        self.rel_error.append(abs((E0 - self.ansatz.nucleus.eig_val[0])/self.ansatz.nucleus.eig_val[0]))
+        self.fcalls.append(self.ansatz.fcalls)
+        self.tot_operators+=self.fcalls[-1]*len(self.ansatz.added_operators)
+        self.tot_operators_layers.append(self.tot_operators)
+        first_operator,first_gradient = self.ansatz.choose_operator()
+        gradient_layers = [first_gradient]
+        opt_grad_layers = []
+        energy_layers = [E0]
+        rel_error_layers = [self.rel_error[-1]]
+        fcalls_layers = [self.fcalls[-1]]
+        self.state_layers.append(self.ansatz.ansatz)
+        self.ansatz.added_operators.append(first_operator)
+
+        while self.ansatz.minimum == False and len(self.ansatz.added_operators)<self.max_layers+1:
+            self.parameter_layers.append([])
+            if self.tol_method == 'Automatic':    
+                ftol = gradient_layers[-1]*1e-6
+                gtol = gradient_layers[-1]*1e-2
+                rhoend = gradient_layers[-1]*1e-2
+                self.update_options(ftol,gtol,rhoend)
+            self.layer_fcalls.append(self.ansatz.fcalls)
+            self.ansatz.count_fcalls = True
+            try:
+                result = minimize(self.ansatz.energy_one_step,
+                                  0.0,
+                                  method=self.method,
+                                  callback=self.callback_one_step,
+                                  options=self.options)
+                self.parameters.append(float(result.x))
+                if self.return_data:
+                    if self.method!='COBYLA':
+                        opt_grad= np.linalg.norm(result.jac)
+                    else:
+                        opt_grad=0
+                    opt_grad_layers.append(opt_grad)
+                self.ansatz.count_fcalls = False
+                self.ansatz.ansatz = self.ansatz.build_ansatz(self.parameters)
+                next_operator,next_gradient = self.ansatz.choose_operator()
+                if self.conv_criterion == 'Repeated op' and next_operator == self.ansatz.added_operators[-1]:
+                    self.ansatz.minimum = True
+                elif self.conv_criterion == 'Gradient' and opt_grad < 1e-6:
+                    self.ansatz.minimum = True
+                else:
+                    if len(self.ansatz.added_operators)<self.max_layers:
+                        self.ansatz.added_operators.append(next_operator)
+                        gradient_layers.append(next_gradient)
+                        energy_layers.append(self.energy[-1])
+                        rel_error_layers.append(self.rel_error[-1])
+                        fcalls_layers.append(self.fcalls[-1])
+                    else:
+                        self.ansatz.minimum = True
+            except OptimizationConvergedException:
+                if self.return_data:
+                    opt_grad_layers.append('Manually stopped')
+            self.state_layers.append(self.ansatz.ansatz)
+            for a in range(len(self.parameters)):
+                self.parameter_layers[a].append(self.parameters[a])
+        
+
+        if final_run:
+            try:
+                result = minimize(self.ansatz.energy,
+                                  self.parameters,
+                                  method=self.method,
+                                  callback=self.callback,
+                                  options=self.options)
+                self.parameters = list(result.x)
+                if self.return_data:
+                    if self.method!='COBYLA':
+                        opt_grad= np.linalg.norm(result.jac)
+                    else:
+                        opt_grad=0
+                    opt_grad_layers.append(opt_grad)
+                self.ansatz.count_fcalls = False
+                self.ansatz.ansatz = self.ansatz.build_ansatz(self.parameters)
+                next_operator,next_gradient = self.ansatz.choose_operator()
+                if self.conv_criterion == 'Repeated op' and next_operator == self.ansatz.added_operators[-1]:
+                    self.ansatz.minimum = True
+                elif self.conv_criterion == 'Gradient' and opt_grad < 1e-6:
                     self.ansatz.minimum = True
                 else:
                     self.ansatz.added_operators.append(next_operator)
@@ -170,15 +312,93 @@ class ADAPTVQE():
                 if self.return_data:
                     opt_grad_layers.append('Manually stopped')
             self.state_layers.append(self.ansatz.ansatz)
+            for a in range(len(self.parameters)):
+                self.parameter_layers[a].append(self.parameters[a])
+
+
         energy_layers.append(self.energy[-1])
         rel_error_layers.append(self.rel_error[-1])
         fcalls_layers.append(self.fcalls[-1])
-        if self.min_criterion == 'None' and self.ansatz.minimum == False:
+        if self.conv_criterion == 'None' and self.ansatz.minimum == False:
             self.ansatz.minimum = True
             opt_grad_layers.append('Manually stopped')
         if self.return_data:
             return  gradient_layers, opt_grad_layers, energy_layers, rel_error_layers, fcalls_layers
         
+
+    def run_n_layers(self, n_layers: int) -> tuple[list[TwoBodyExcitationOperator],list[float],list[float],
+                                                    list[float], list[float], list[int]]:
+        """Runs the ADAPT VQE algorithm for a given number of layers"""
+
+        self.ansatz.fcalls = 0
+        E0 = self.ansatz.energy(self.parameters)
+        self.energy.append(E0)
+        self.rel_error.append(abs((E0 - self.ansatz.nucleus.eig_val[0])/self.ansatz.nucleus.eig_val[0]))
+        self.fcalls.append(self.ansatz.fcalls)
+        self.tot_operators+=self.fcalls[-1]*len(self.ansatz.added_operators)
+        self.tot_operators_layers.append(self.tot_operators)
+        next_operator,next_gradient = self.ansatz.choose_operator()
+        gradient_layers = []
+        opt_grad_layers = []
+        energy_layers = [E0]
+        rel_error_layers = [self.rel_error[-1]]
+        fcalls_layers = [self.fcalls[-1]]
+        self.state_layers.append(self.ansatz.ansatz)
+
+        while self.ansatz.minimum == False and len(self.ansatz.added_operators)<=self.max_layers:
+            self.parameter_layers.append([])
+            gradient_layers.append(next_gradient)
+            self.ansatz.added_operators.append(next_operator)
+            if self.tol_method == 'Automatic':    
+                ftol = gradient_layers[-1]*1e-6
+                gtol = gradient_layers[-1]*1e-2
+                rhoend = gradient_layers[-1]*1e-2
+                self.update_options(ftol,gtol,rhoend)
+            self.layer_fcalls.append(self.ansatz.fcalls)
+            self.parameters.append(0.0)
+            self.ansatz.count_fcalls = True
+            try:
+                result = minimize(self.ansatz.energy_n_layers,
+                                  args=(n_layers),
+                                  x0=self.parameters,
+                                  method=self.method,
+                                  callback=self.callback_n_layers,
+                                  options=self.options)
+                self.parameters = list(result.x)
+                if self.return_data:
+                    if self.method!='COBYLA':
+                        opt_grad= np.linalg.norm(result.jac)
+                    else:
+                        opt_grad=0
+                    opt_grad_layers.append(opt_grad)
+                self.ansatz.count_fcalls = False
+                self.ansatz.ansatz = self.ansatz.build_ansatz_n_layers(self.parameters,n_layers)
+                next_operator,next_gradient = self.ansatz.choose_operator()
+                if self.conv_criterion == 'Repeated op' and next_operator == self.ansatz.added_operators[-1]:
+                    self.ansatz.minimum = True
+                elif self.conv_criterion == 'Gradient' and opt_grad < 1e-6:
+                    self.ansatz.minimum = True
+                else:
+                    energy_layers.append(self.energy[-1])
+                    rel_error_layers.append(self.rel_error[-1])
+                    fcalls_layers.append(self.fcalls[-1])
+            except OptimizationConvergedException:
+                if self.return_data:
+                    opt_grad_layers.append('Manually stopped')
+            self.state_layers.append(self.ansatz.ansatz)
+            for a in range(len(self.parameters)):
+                self.parameter_layers[a].append(self.parameters[a])
+
+        energy_layers.append(self.energy[-1])
+        rel_error_layers.append(self.rel_error[-1])
+        fcalls_layers.append(self.fcalls[-1])
+        if self.conv_criterion == 'None' and self.ansatz.minimum == False:
+            self.ansatz.minimum = True
+            opt_grad_layers.append('Manually stopped')
+        if self.return_data:
+            return  gradient_layers, opt_grad_layers, energy_layers, rel_error_layers, fcalls_layers
+
+
     def callback(self, params: list[float]) -> None:
         """Callback function to store the energy and parameters at each iteration
         and stop the optimization if the threshold is reached."""
@@ -192,10 +412,49 @@ class ADAPTVQE():
         self.tot_operators+=(self.fcalls[-1]-self.fcalls[-2])*len(self.ansatz.added_operators)
         self.tot_operators_layers.append(self.tot_operators)
         if self.rel_error[-1] < self.test_threshold and self.stop_at_threshold:
-            self.convergence = True
+            self.success = True
             self.ansatz.minimum = True
             self.parameters = params
             raise OptimizationConvergedException
+
+
+    def callback_one_step(self, param: float) -> None:
+        """Callback function to store the energy and parameters at each iteration
+        and stop the optimization if the threshold is reached."""
+
+        self.ansatz.count_fcalls = False
+        E = self.ansatz.energy_one_step(param)
+        self.ansatz.count_fcalls = True
+        self.energy.append(E)
+        self.rel_error.append(abs((E - self.ansatz.nucleus.eig_val[0])/self.ansatz.nucleus.eig_val[0]))
+        self.fcalls.append(self.ansatz.fcalls)
+        self.tot_operators+=(self.fcalls[-1]-self.fcalls[-2])*len(self.ansatz.added_operators)
+        self.tot_operators_layers.append(self.tot_operators)
+        if self.rel_error[-1] < self.test_threshold and self.stop_at_threshold:
+            self.success = True
+            self.ansatz.minimum = True
+            self.parameters = param
+            raise OptimizationConvergedException
+    
+    def callback_one_step(self, params: float, n_layers) -> None:
+        """Callback function to store the energy and parameters at each iteration
+        and stop the optimization if the threshold is reached."""
+
+        self.ansatz.count_fcalls = False
+        E = self.ansatz.energy_n_layers(params,n_layers)
+        self.ansatz.count_fcalls = True
+        self.energy.append(E)
+        self.rel_error.append(abs((E - self.ansatz.nucleus.eig_val[0])/self.ansatz.nucleus.eig_val[0]))
+        self.fcalls.append(self.ansatz.fcalls)
+        self.tot_operators+=(self.fcalls[-1]-self.fcalls[-2])*len(self.ansatz.added_operators)
+        self.tot_operators_layers.append(self.tot_operators)
+        if self.rel_error[-1] < self.test_threshold and self.stop_at_threshold:
+            self.success = True
+            self.ansatz.minimum = True
+            self.parameters = params
+            raise OptimizationConvergedException
+
+
 
 
 

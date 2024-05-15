@@ -79,7 +79,7 @@ for i,f in enumerate(UCC_files):
     failed = []
     x_f = []
     for j,d in enumerate(data):
-        if d[2] == 'CONVERGED':
+        if d[2] == 'SUCCESSED':
             converged.append(float(d[1]))
             x_c.append(x[j])
         else:

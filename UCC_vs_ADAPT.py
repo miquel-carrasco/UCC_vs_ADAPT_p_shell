@@ -61,7 +61,14 @@ def UCC_vs_ADAPT(n_v: int, method: str = 'SLSQP',tol: float = 1e-10, max_layers:
     plt.show()
 
 
-def UCC_v_performance(method: str, n_times: int) -> None:
+def UCC_v_performance(method: str,
+                      n_times: int = 1000,
+                      ftol: float = 1e-7,
+                      gtol: float = 1e-3,
+                      rhoend: float = 1e-5,
+                      test_threshold: float = 1e-6,
+                      stop_at_threshold: bool = True,
+                      pool_format: str = 'Only acting') -> None:
     Li6 = Nucleus('Li6', 1)
     vecs = np.eye(Li6.d_H)
 
@@ -72,21 +79,28 @@ def UCC_v_performance(method: str, n_times: int) -> None:
     output_folder = os.path.join('outputs/v_performance/UCC')
 
 
-    file = open(os.path.join(output_folder, f'{method}_performance_randomt0_ntimes={n_times}.dat'), 'w')
+    file = open(os.path.join(output_folder, f'{method}_performance_randomt0_ntimes={n_times}_pool={pool_format}.dat'), 'w')
     for n_v,v in enumerate(vecs):
         print(f'{n_v}')
         ref_state = v
-        UCC_ansatz = UCCAnsatz(Li6, ref_state)
+        UCC_ansatz = UCCAnsatz(Li6, ref_state = ref_state, pool_format = pool_format)
 
         calls = 0
         calls2 = 0
         n_fails = 0
         for n in tqdm(range(n_times)):
-            init_param = np.random.uniform(low=-np.pi, high=np.pi,size=len(UCC_ansatz.operators))
-            random.shuffle(UCC_ansatz.operators)
-            vqe = UCCVQE(UCC_ansatz, init_param=init_param, method=method)
+            init_param = np.random.uniform(low=-np.pi, high=np.pi,size=len(UCC_ansatz.operator_pool))
+            random.shuffle(UCC_ansatz.operator_pool)
+            vqe = UCCVQE(UCC_ansatz,
+                         init_param=init_param,
+                         method=method,
+                         ftol = ftol,
+                         gtol = gtol,
+                         rhoend = rhoend,
+                         test_threshold = test_threshold,
+                         stop_at_threshold = stop_at_threshold)
             vqe.run()
-            if vqe.convergence:
+            if vqe.success:
                 calls += vqe.fcalls[-1]
                 calls2 += vqe.fcalls[-1]**2
             else:
@@ -100,4 +114,4 @@ def UCC_v_performance(method: str, n_times: int) -> None:
 
 
 if __name__ == '__main__':
-    UCC_vs_ADAPT(n_v=0, method='BFGS', tol=1e-10,max_layers=10)
+    UCC_v_performance(method = 'BFGS', n_times=1000, pool_format='Only acting')
