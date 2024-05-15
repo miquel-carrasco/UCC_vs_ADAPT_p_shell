@@ -21,12 +21,12 @@ plt.rcParams.update(params)
 Li6 = Nucleus('Li6',1)
 d_H = Li6.d_H
 
-runs=100
+runs=1000
 
 
 UCC_folder=('./outputs/v_performance/UCC')
 UCC_files=os.listdir(UCC_folder)
-UCC_files=[f for f in UCC_files if f'ntimes={runs}' in f]
+UCC_files=[f for f in UCC_files if f'ntimes={runs}_' in f]
 
 ADAPT_folder=('./outputs/v_performance/ADAPT')
 ADAPT_files=os.listdir(ADAPT_folder)
@@ -91,12 +91,12 @@ for i,f in enumerate(UCC_files):
 
 
 ax1.set_xticks(np.arange(len(v)),v,rotation=45)
-ax1.set_title(f'Overall UCC vs ADAPT performance')
+ax1.set_title(f'UCC (9 operators, {runs} runs) vs ADAPT')
 ax1.set_xlabel(r'State ($|j_p, m_p,j_n, m_n\rangle$)')
 ax1.set_ylabel('Infidelity')
 fig.legend(loc=(0.2,0.67),framealpha=1, frameon=True,edgecolor='black',fancybox=False)
-ax2.set_ylabel('Gate count')
-ax2.set_ylim(0,8010)
+ax2.set_ylabel('Operators used')
+
 
 try:
     os.makedirs('figures')
@@ -104,4 +104,4 @@ except OSError:
     pass
 
 
-fig.savefig(f'./figures/opt_vect_performance_random_{runs}runs_vs_ADAPT.pdf',bbox_inches='tight')
+fig.savefig(f'./figures/UCC_vs_ADAPT_{runs}runs_9_operators.pdf',bbox_inches='tight')

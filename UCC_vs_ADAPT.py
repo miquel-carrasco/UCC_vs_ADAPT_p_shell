@@ -114,4 +114,4 @@ def UCC_v_performance(method: str,
 
 
 if __name__ == '__main__':
-    UCC_v_performance(method = 'BFGS', n_times=1000, pool_format='Only acting')
+    UCC_v_performance(method = 'L-BFGS-B', n_times=100, pool_format='Reduced')
