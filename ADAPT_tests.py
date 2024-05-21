@@ -7,6 +7,7 @@ import random
 import os
 from tqdm import tqdm
 import pandas as pd
+from time import time
 
 from VQE.Nucleus import Nucleus
 from VQE.Ansatze import UCCAnsatz, ADAPTAnsatz
@@ -529,15 +530,16 @@ def pool_format_test(n_v: int = 1,
     plt.show()
 
 
-def one_step_test(n_v: int = 1,
-                       method: str = 'SLSQP',
-                       test_threshold: float = 1e-6,
-                       stop_at_threshold: bool = True,
-                       ftol: float = 1e-10,
-                       gtol: float = 1e-10,
-                       tol_method: str = 'Manual',
-                       conv_criterion: str = 'Repeated',
-                       pool_format = 'Reduced') -> None:
+def one_step_test(nuc: str, 
+                  n_v: int = 1,
+                  method: str = 'SLSQP',
+                  test_threshold: float = 1e-6,
+                  stop_at_threshold: bool = True,
+                  ftol: float = 1e-10,
+                  gtol: float = 1e-10,
+                  tol_method: str = 'Manual',
+                  conv_criterion: str = 'Repeated',
+                  pool_format = 'Reduced') -> None:
     
     params = {'axes.linewidth': 1.4,
             'axes.labelsize': 16,
@@ -553,23 +555,10 @@ def one_step_test(n_v: int = 1,
             }
     plt.rcParams.update(params)
 
-    Li6 = Nucleus('Li6', 1)
-    ref_state = np.eye(Li6.d_H)[n_v]
+    nucleus = Nucleus(nuc, 1)
+    ref_state = np.eye(nucleus.d_H)[n_v]
 
-    ansatz = ADAPTAnsatz(Li6, ref_state, pool_format=pool_format)
-    vqe = ADAPTVQE(ansatz,
-                   method=method,
-                   test_threshold=test_threshold,
-                   stop_at_threshold=stop_at_threshold,
-                   ftol=ftol,
-                   gtol=gtol,
-                   tol_method=tol_method,
-                   conv_criterion=conv_criterion)
-    vqe.run()
-    plt.plot(vqe.tot_operators_layers, vqe.rel_error, label='All parameters min')
-
-
-    ansatz = ADAPTAnsatz(Li6, ref_state, pool_format=pool_format)
+    ansatz = ADAPTAnsatz(nucleus, ref_state, pool_format=pool_format)
     vqe = ADAPTVQE(ansatz,
                    method=method,
                    test_threshold=test_threshold,
@@ -578,12 +567,26 @@ def one_step_test(n_v: int = 1,
                    gtol=gtol,
                    tol_method=tol_method,
                    conv_criterion=conv_criterion,
-                   max_layers=30)
+                   max_layers=1)
+    vqe.run()
+    plt.plot(vqe.tot_operators_layers, vqe.rel_error, label='All parameters min')
+
+
+    ansatz = ADAPTAnsatz(nucleus, ref_state, pool_format=pool_format)
+    vqe = ADAPTVQE(ansatz,
+                   method=method,
+                   test_threshold=test_threshold,
+                   stop_at_threshold=stop_at_threshold,
+                   ftol=ftol,
+                   gtol=gtol,
+                   tol_method=tol_method,
+                   conv_criterion=conv_criterion,
+                   max_layers=1)
     vqe.run_one_step(final_run=False)
     plt.plot(vqe.tot_operators_layers, vqe.rel_error, label='Step by step (30 layers)')
 
-    for max_layers in [5,10,11,15]:
-        ansatz = ADAPTAnsatz(Li6, ref_state, pool_format=pool_format)
+    for max_layers in [100]:
+        ansatz = ADAPTAnsatz(nucleus, ref_state, pool_format=pool_format)
         vqe = ADAPTVQE(ansatz,
                     method=method,
                     test_threshold=test_threshold,
@@ -602,7 +605,7 @@ def one_step_test(n_v: int = 1,
     plt.legend(fontsize='small')
     plt.title('Step by step ADAPT minimization')
 
-    plt.savefig('figures/ADAPT_minimization_step_by_step.pdf')   
+    plt.savefig(f'figures/{nuc}/ADAPT_minimization_step_by_step.pdf')   
 
 if __name__ == '__main__':
     #Gradient_evolution(stop_at_threshold=False, ftol=0.0, gtol=0.0, max_layers=15, method='L-BFGS-B')
@@ -610,5 +613,5 @@ if __name__ == '__main__':
     #parameters_evolution(method='SLSQP')
     #ADAPT_plain_test(n_v=1, method='SLSQP', max_layers=15, pool_format='Reduced', conv_criterion='Repeated op', ftol)
     #pool_format_test(n_v=3)
-    #ADAPT_v_performance()
-    one_step_test()
+    #ADAPT_v_performance(nuc = 'He8')
+    one_step_test(nuc = 'He8', method = 'SLSQP')

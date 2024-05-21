@@ -1,7 +1,6 @@
 import numpy as np
 from .Nucleus import Nucleus, TwoBodyExcitationOperator
 from scipy.linalg import expm
-from scipy.optimize import minimize
 import random
 
 
@@ -142,7 +141,7 @@ class ADAPTAnsatz(Ansatz):
         ansatz = self.ref_state
         if n_layers < len(self.added_operators):
             for n in range(0,len(self.added_operators)-n_layers):
-                ansatz = expm(parameters[n]*self.added_operators[n].matrix) @ ansatz
+                ansatz = expm(parameters[n]*self.added_operators[n].matrix.torray()) @ ansatz
 
    
     def energy(self, parameters: list[float]) -> float:
@@ -158,7 +157,7 @@ class ADAPTAnsatz(Ansatz):
 
         if self.count_fcalls == True:
             self.fcalls += 1
-        new_ansatz = expm(self.added_operators[-1].matrix*parameter)@self.ansatz
+        new_ansatz = expm(self.added_operators[-1].matrix*parameter).dot(self.ansatz)
         return new_ansatz.conj().T @ self.nucleus.H @ new_ansatz
     
 
@@ -167,7 +166,7 @@ class ADAPTAnsatz(Ansatz):
         if self.count_fcalls == True:
             self.fcalls += 1
         for n in range(n_layers):
-            new_ansatz = expm(self.added_operators[-n].matrix*parameters[-n])@self.ansatz
+            new_ansatz = expm(self.added_operators[-n].matrix*parameters[-n]).dot(self.ansatz)
         return new_ansatz.conj().T @ self.nucleus.H @ new_ansatz
 
 

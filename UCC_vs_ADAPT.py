@@ -29,19 +29,21 @@ params = {'axes.linewidth': 1.4,
 plt.rcParams.update(params)
 
 
-def UCC_vs_ADAPT(n_v: int, method: str = 'SLSQP',tol: float = 1e-10, max_layers: int = 15) -> None:
-    Li6 = Nucleus('Li6', 1)
-    ref_state = np.eye(Li6.d_H)[n_v]
+def UCC_vs_ADAPT(nuc: str, n_v: int, method: str = 'SLSQP', max_layers: int = 15) -> None:
+    nucleus = Nucleus(nuc, 1)
+    ref_state = np.eye(nucleus.d_H)[n_v]
     
-    ADAPT_ansatz = ADAPTAnsatz(Li6, ref_state)
-    ADAPT_vqe = ADAPTVQE(ADAPT_ansatz, method = method, max_layers=max_layers,tol=tol)
+    ADAPT_ansatz = ADAPTAnsatz(nucleus, ref_state)
+    ADAPT_vqe = ADAPTVQE(ADAPT_ansatz, method = method, max_layers=max_layers)
     ADAPT_vqe.run()
     adapt_rel_error = ADAPT_vqe.rel_error
     adapt_energy = ADAPT_vqe.energy
     adapt_fcalls = ADAPT_vqe.fcalls
 
-    UCC_ansatz = UCCAnsatz(Li6, ref_state)
-    init_param = np.zeros(len(UCC_ansatz.operators))
+    print('ADAPT DONE')
+
+    UCC_ansatz = UCCAnsatz(nucleus, ref_state, pool_format= 'Reduced')
+    init_param = np.zeros(len(UCC_ansatz.operator_pool))
     UCC_vqe = UCCVQE(UCC_ansatz,init_param=init_param, method=method)
     UCC_vqe.run()
     ucc_rel_error = UCC_vqe.rel_error
@@ -114,4 +116,4 @@ def UCC_v_performance(method: str,
 
 
 if __name__ == '__main__':
-    UCC_v_performance(method = 'L-BFGS-B', n_times=100, pool_format='Reduced')
+    UCC_vs_ADAPT(nuc='He8', n_v = 1, method = 'L-BFGS-B', max_layers = 30)
