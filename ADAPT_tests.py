@@ -15,38 +15,31 @@ from VQE.Utils import labels_all_combinations
 from VQE.Methods import UCCVQE, OptimizationConvergedException, ADAPTVQE
 
 
-def ADAPT_v_performance(tol_method: str = 'Manual',
-                        ftol: float = 1e-7,
-                        gtol: float = 1e-3,
-                        rhoend: float = 1e-5,
-                        max_layers: int = 15,
+def ADAPT_v_performance(nuc: str,
+                        max_layers: int = 60,
                         conv_criterion: str = 'Repeated op',
                         test_threshold: float = 1e-6,
                         stop_at_threshold: bool = True) -> None:
     
-    Li6 = Nucleus('Li6', 1)
-    vecs = np.eye(Li6.d_H)
+    nucleus = Nucleus(nuc, 1)
+    vecs = np.eye(nucleus.d_H)
 
     try:
-        os.makedirs('outputs/v_performance/ADAPT')
+        os.makedirs(f'outputs/{nuc}/v_performance/ADAPT')
     except OSError:
         pass
 
-    output_folder = os.path.join('outputs/v_performance/ADAPT')
-    methods = ['COBYLA', 'L-BFGS-B', 'BFGS', 'SLSQP']
+    output_folder = os.path.join(f'outputs/{nuc}/v_performance/ADAPT')
+    methods = ['L-BFGS-B', 'BFGS', 'SLSQP']
     for method in methods:
         print(f'{method}')
         file = open(os.path.join(output_folder, f'{method}_performance_ADAPT.dat'), 'w')
-        for n_v,v in tqdm(enumerate(vecs)):
-            ref_state = v
-            ADAPT_ansatz = ADAPTAnsatz(Li6, ref_state, pool_format='Reduced')
+        for n_v in tqdm(range(5)):
+            ref_state = vecs[n_v]
+            ADAPT_ansatz = ADAPTAnsatz(nucleus, ref_state, pool_format='Reduced')
 
             vqe = ADAPTVQE(ADAPT_ansatz,
                            method = method,
-                           tol_method = tol_method,
-                           ftol = ftol,
-                           gtol = gtol,
-                           rhoend = rhoend,
                            max_layers = max_layers,
                            conv_criterion = conv_criterion,
                            test_threshold = test_threshold,
@@ -159,12 +152,10 @@ def ADAPT_plain_test(n_v: int = 1,
 
 
 
-def parameters_evolution(method: str = 'SLSQP',
-                     conv_criterion: str = 'Repeated op',
-                     ftol: float = 1e-10,
-                     gtol: float = 1e-10,
-                     rhoend: float = 1e-10,
-                     max_layers: int = 15) -> None:
+def parameters_evolution(nuc: str,
+                         method: str = 'SLSQP',
+                         conv_criterion: str = 'Repeated op',
+                         max_layers: int = 100) -> None:
     
     params = {'axes.linewidth': 1.4,
             'axes.labelsize': 16,
@@ -181,40 +172,38 @@ def parameters_evolution(method: str = 'SLSQP',
     plt.rcParams.update(params)
 
     try:
-        os.makedirs('figures/ADAPT_parameters_evolution')
+        os.makedirs(f'figures/{nuc}/ADAPT_parameters_evolution')
     except OSError:
         pass
 
-    Li6 = Nucleus('Li6', 1)
+    nucleus = Nucleus(nuc, 1)
 
-    for n_v in range(Li6.d_H):
-        ref_state = np.eye(Li6.d_H)[n_v]
-        ansatz = ADAPTAnsatz(Li6, ref_state)
+    for n_v in tqdm(range(4)):
+        ref_state = np.eye(nucleus.d_H)[n_v]
+        ansatz = ADAPTAnsatz(nucleus, ref_state)
 
         vqe = ADAPTVQE(ansatz,
                     method=method,
                     conv_criterion=conv_criterion,
-                    ftol=ftol,
-                    gtol=gtol,
-                    rhoend=rhoend,
                     max_layers=max_layers,
                     return_data=True)
                             
         result = vqe.run()
 
-
-        x = np.linspace(1, len(vqe.parameters), len(vqe.parameters))
-        plt.vlines(x, ymin=-np.pi, ymax=np.pi, color='grey', linestyle='--',alpha=0.5)
+        num_layers = len(vqe.parameters)
+        x = np.linspace(1, num_layers, len(vqe.parameters))
+        #plt.vlines(x, ymin=-np.pi, ymax=np.pi, color='grey', linestyle='--',alpha=0.5)
         for i,parameter in enumerate(vqe.parameter_layers):
             plt.plot(x[-len(parameter):],parameter,'-o')
-            ijkl = ansatz.added_operators[i].ijkl
-            plt.text(x[-len(parameter)]+0.3,1.6, r'$T^{%d,%d} _{%d,%d}$'%(ijkl[0],ijkl[1],ijkl[2],ijkl[3]), fontsize=9)
+            if num_layers < 20:
+                ijkl = ansatz.added_operators[i].ijkl
+                plt.text(x[-len(parameter)]+0.3,1.6, r'$T^{%d,%d} _{%d,%d}$'%(ijkl[0],ijkl[1],ijkl[2],ijkl[3]), fontsize=9)
         plt.xlim(1, len(vqe.parameters)+1)
-        plt.ylim(-2, 2)
+        #plt.ylim(-2, 2)
         plt.xlabel('Layer')
         plt.ylabel('Parameter value')
-        plt.title(f'ADAPT parameters evolution for $v_{n_v}$')
-        plt.savefig(f'figures/ADAPT_parameters_evolution/v{n_v}_ADAPT_parameters_evolution.pdf', bbox_inches='tight')
+        plt.title(f'{nuc} parameters evolution for $v_{n_v}$ ({num_layers} layers)')
+        plt.savefig(f'figures/{nuc}/ADAPT_parameters_evolution/v{n_v}_ADAPT_parameters_evolution.pdf', bbox_inches='tight')
         plt.close()
 
 
@@ -480,15 +469,13 @@ def Gradient_evolution(method: str = 'SLSQP',
     fig.savefig(f'figures/ADAPT_Gradient_evolution/Gradient_evolution_{method}_tols={ftol}_{gtol}.pdf', bbox_inches='tight')
 
 
-def pool_format_test(n_v: int = 1,
+def pool_format_test(nuc: str,
+                     n_v: int = 1,
                      method: str = 'SLSQP',
                      test_threshold: float = 1e-6,
                      stop_at_threshold: bool = True,
-                     ftol: float = 1e-10,
-                     gtol: float = 1e-10,
-                     tol_method: str = 'Manual',
                      conv_criterion: str = 'None',
-                     max_layers: int = 15) -> None:
+                     max_layers: int = 100) -> None:
     
     params = {'axes.linewidth': 1.4,
             'axes.labelsize': 16,
@@ -504,18 +491,16 @@ def pool_format_test(n_v: int = 1,
             }
     plt.rcParams.update(params)
 
-    Li6 = Nucleus('Li6', 1)
-    ref_state = np.eye(Li6.d_H)[n_v]
+    nucleus = Nucleus(nuc, 1)
+    ref_state = np.eye(nucleus.d_H)[n_v]
     pool_formats = ['All', 'Only acting', 'Reduced']
     for pool_format in pool_formats:
-        ansatz = ADAPTAnsatz(Li6, ref_state, pool_format=pool_format)
+        ansatz = ADAPTAnsatz(nucleus, ref_state, pool_format=pool_format)
+        print(f'{pool_format} --> {len(ansatz.operator_pool)} operators')
         vqe = ADAPTVQE(ansatz,
                        method=method,
                        test_threshold=test_threshold,
                        stop_at_threshold=stop_at_threshold,
-                       ftol=ftol,
-                       gtol=gtol,
-                       tol_method=tol_method,
                        conv_criterion=conv_criterion,
                        max_layers=max_layers)
         vqe.run()
@@ -567,7 +552,7 @@ def one_step_test(nuc: str,
                    gtol=gtol,
                    tol_method=tol_method,
                    conv_criterion=conv_criterion,
-                   max_layers=1)
+                   max_layers=60)
     vqe.run()
     plt.plot(vqe.tot_operators_layers, vqe.rel_error, label='All parameters min')
 
@@ -581,11 +566,11 @@ def one_step_test(nuc: str,
                    gtol=gtol,
                    tol_method=tol_method,
                    conv_criterion=conv_criterion,
-                   max_layers=1)
+                   max_layers=30)
     vqe.run_one_step(final_run=False)
-    plt.plot(vqe.tot_operators_layers, vqe.rel_error, label='Step by step (30 layers)')
+    plt.plot(vqe.tot_operators_layers, vqe.rel_error, label='Step by step (100 layers)')
 
-    for max_layers in [100]:
+    for max_layers in [5,10,11,15]:
         ansatz = ADAPTAnsatz(nucleus, ref_state, pool_format=pool_format)
         vqe = ADAPTVQE(ansatz,
                     method=method,
@@ -610,8 +595,11 @@ def one_step_test(nuc: str,
 if __name__ == '__main__':
     #Gradient_evolution(stop_at_threshold=False, ftol=0.0, gtol=0.0, max_layers=15, method='L-BFGS-B')
     #tol_test(n_v=0, max_layers=10,test_threshold=1e-10, stop_at_threshold=True,conv_criterion='Repeated op')
-    #parameters_evolution(method='SLSQP')
     #ADAPT_plain_test(n_v=1, method='SLSQP', max_layers=15, pool_format='Reduced', conv_criterion='Repeated op', ftol)
-    #pool_format_test(n_v=3)
-    #ADAPT_v_performance(nuc = 'He8')
-    one_step_test(nuc = 'He8', method = 'SLSQP')
+    #pool_format_test(nuc='He8',n_v=0)
+    ADAPT_v_performance(nuc = 'He8')
+    #one_step_test(nuc = 'Li6', n_v = 1, method = 'SLSQP')
+    # time1 = time()
+    # parameters_evolution(nuc = 'He8', method='SLSQP')
+    # time2 = time()
+    # print(time2-time1)

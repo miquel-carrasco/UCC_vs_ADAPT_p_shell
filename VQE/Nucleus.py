@@ -5,6 +5,7 @@ import warnings
 import scipy
 from scipy.sparse import lil_matrix, csc_matrix
 import scipy.sparse
+from numba import jit, cuda
 
 class TwoBodyExcitationOperator():
     "Class to define an antihermitian operator corresponding to a two-body excitation."
@@ -145,4 +146,11 @@ class Nucleus():
             return tuple()
             
             
-
+if __name__=='__main__':
+    He8 = Nucleus('He8', 0)
+    list = [op.matrix for op in He8.operators if op.ijkl==[7,8,6,9]]
+    mat = list[0]
+    for i in range(len(mat)):
+        for j in range(len(mat)):
+            if mat[i,j] != 0:
+                print(i,j,mat[i,j])

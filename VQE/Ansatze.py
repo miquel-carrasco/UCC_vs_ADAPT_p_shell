@@ -2,6 +2,7 @@ import numpy as np
 from .Nucleus import Nucleus, TwoBodyExcitationOperator
 from scipy.linalg import expm
 import random
+from numba import jit, cuda
 
 
 class Ansatz():
@@ -143,14 +144,16 @@ class ADAPTAnsatz(Ansatz):
             for n in range(0,len(self.added_operators)-n_layers):
                 ansatz = expm(parameters[n]*self.added_operators[n].matrix.torray()) @ ansatz
 
-   
     def energy(self, parameters: list[float]) -> float:
         """Returns the energy of the ansatz"""
 
-        if self.count_fcalls == True:
-            self.fcalls += 1
-        new_ansatz = self.build_ansatz(parameters)
-        return new_ansatz.conj().T @ self.nucleus.H @ new_ansatz
+        if len(parameters) != 0:
+            if self.count_fcalls == True:
+                self.fcalls += 1
+            new_ansatz = self.build_ansatz(parameters)
+            return new_ansatz.conj().T @ self.nucleus.H @ new_ansatz
+        else:
+            return self.ansatz.conj().T @ self.nucleus.H @ self.ansatz
 
 
     def energy_one_step(self, parameter: float) -> float:
