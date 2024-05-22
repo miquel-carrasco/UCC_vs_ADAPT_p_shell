@@ -3,6 +3,7 @@ from .Nucleus import Nucleus, TwoBodyExcitationOperator
 from scipy.linalg import expm
 import random
 from numba import jit, cuda
+from  scipy.sparse.linalg import expm_multiply
 
 
 class Ansatz():
@@ -82,7 +83,7 @@ class UCCAnsatz(Ansatz):
         ansatz = self.ref_state
         for t in range(self.T_n):
             for i, op in enumerate(self.operator_pool):
-                ansatz = expm(parameters[i]/self.T_n * op.matrix) @ ansatz
+                ansatz = expm_multiply(parameters[i]/self.T_n * op.matrix, ansatz, traceA = 0.0)
         return ansatz
     
     def energy(self, parameters: np.ndarray) -> float:
@@ -133,7 +134,7 @@ class ADAPTAnsatz(Ansatz):
 
         ansatz = self.ref_state
         for i,op in enumerate(self.added_operators):
-            ansatz = expm(parameters[i]*op.matrix) @ ansatz
+            ansatz = expm_multiply(parameters[i]*op.matrix, ansatz, traceA = 0.0)
         return ansatz
 
     

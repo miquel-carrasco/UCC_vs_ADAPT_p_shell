@@ -29,7 +29,7 @@ class Nucleus():
         self.M = M
         self.data_folder = os.path.join(f'nuclei/{self.name}_data')
         self.states = self.states()
-        self.H = self.hamiltonian_matrix()
+        self.H: csc_matrix = self.hamiltonian_matrix()
         self.eig_val, self.eig_vec = la.eigh(self.H)
         self.operators = self.sparse_operators()
     
@@ -41,7 +41,7 @@ class Nucleus():
         H_data = np.loadtxt(file_path,delimiter=' ', dtype=float)
         for line in H_data:
             H[int(line[0]), int(line[1])] = line[2]
-        return H
+        return csc_matrix(H)
     
     def states(self) -> list[tuple]:
 
@@ -93,7 +93,7 @@ class Nucleus():
                     for a in matrix_data:
                         operator_matrix[int(a[0]), int(a[1])] = a[2]
                     H2b = H2b_dictionary[f'{ijkl[0]} {ijkl[1]} {ijkl[2]} {ijkl[3]}']
-                    commutator = self.H @ operator_matrix - operator_matrix @ self.H
+                    commutator = self.H.dot(operator_matrix)- operator_matrix.dot(self.H)
                     operators.append(TwoBodyExcitationOperator(label, H2b, ijkl, operator_matrix, commutator))
 
         return operators
@@ -120,9 +120,9 @@ class Nucleus():
                         this_excitation[row, column] = 1
                         operator_matrix += this_excitation
                         operator_matrix += -this_excitation.T
-                        commutator = self.H @ operator_matrix - operator_matrix @ self.H
+                        commutator = self.H.dot(operator_matrix)- operator_matrix.dot(self.H)
                 if operator_matrix.count_nonzero() != 0:
-                    operators.append(TwoBodyExcitationOperator(label, H2b, indices, operator_matrix.toarray(), commutator))
+                    operators.append(TwoBodyExcitationOperator(label, H2b, indices, operator_matrix.tocsc(), commutator))
                     label += 1
         
         return operators
