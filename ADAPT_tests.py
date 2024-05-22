@@ -492,6 +492,7 @@ def pool_format_test(nuc: str,
     ref_state = np.eye(nucleus.d_H)[n_v]
     pool_formats = ['All', 'Only acting', 'Reduced']
     for pool_format in pool_formats:
+        time1 = time()
         ansatz = ADAPTAnsatz(nucleus, ref_state, pool_format=pool_format)
         print(f'{pool_format} --> {len(ansatz.operator_pool)} operators')
         vqe = ADAPTVQE(ansatz,
@@ -503,6 +504,8 @@ def pool_format_test(nuc: str,
         vqe.run()
         rel_error = vqe.rel_error
         energy = vqe.energy
+        time2 = time()
+        print(time2-time1)
 
         plt.plot(vqe.tot_operators_layers, rel_error, label=f'{pool_format}')
     plt.yscale('log')
@@ -592,8 +595,10 @@ def one_step_test(nuc: str,
 if __name__ == '__main__':
     #Gradient_evolution(stop_at_threshold=False, ftol=0.0, gtol=0.0, max_layers=15, method='L-BFGS-B')
     #tol_test(n_v=0, max_layers=10,test_threshold=1e-10, stop_at_threshold=True,conv_criterion='Repeated op')
-    #pool_format_test(nuc='He8',n_v=0)
+    #ADAPT_plain_test(n_v=1, method='SLSQP', max_layers=15, pool_format='Reduced', conv_criterion='Repeated op', ftol)
+    pool_format_test(nuc='Li6',n_v=1)
     #ADAPT_v_performance(nuc = 'He8')
     #one_step_test(nuc = 'Li6', n_v = 1, method = 'SLSQP')
     # parameters_evolution(nuc = 'He8', method='SLSQP')
-    ADAPT_plain_test(nuc = 'Be10', n_v = 0)
+    # time2 = time()
+    # print(time2-time1)
