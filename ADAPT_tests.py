@@ -122,27 +122,29 @@ def ADAPT_all_v_tracks(method: str = 'SLSQP',
     plt.show()
 
 
-def ADAPT_plain_test(n_v: int = 1,
+def ADAPT_plain_test(nuc: str,
+                     n_v: int = 1,
                      method: str = 'SLSQP',
+                     test_threshold: float = 1e-6,
+                     stop_at_threshold: bool = True,
                      conv_criterion: str = 'Repeated op',
-                     ftol: float = 1e-10,
-                     gtol: float = 1e-10,
-                     rhoend: float = 1e-10,
-                     max_layers: int = 15,
-                     pool_format: str = 'All') -> None:
+                     max_layers: int = 10,
+                     pool_format: str = 'Reduced') -> None:
     
-    Li6 = Nucleus('Li6', 1)
-    ref_state = np.eye(Li6.d_H)[n_v]
-    ansatz = ADAPTAnsatz(Li6, ref_state, pool_format= pool_format)
+    nucleus = Nucleus(nuc, 1)
+    ref_state = np.eye(nucleus.d_H)[n_v]
+    ansatz = ADAPTAnsatz(nucleus, ref_state, pool_format= pool_format)
 
     vqe = ADAPTVQE(ansatz,
                    method=method,
+                   test_threshold=test_threshold,
+                   stop_at_threshold=stop_at_threshold,
                    conv_criterion=conv_criterion,
-                   ftol=ftol,
-                   gtol=gtol,
-                   rhoend=rhoend,
                    max_layers=max_layers)
+    time1 = time()
     vqe.run()
+    time2 = time()
+    print(time2-time1)
     rel_error = vqe.rel_error
     energy = vqe.energy
 
@@ -207,13 +209,11 @@ def parameters_evolution(nuc: str,
         plt.close()
 
 
-def ADAPT_plot_evolution(method: str = 'SLSQP',
+def ADAPT_plot_evolution(nuc: str,
+                         method: str = 'SLSQP',
                          conv_criterion: str = 'Repeated op',
-                         ftol: float = 1e-10,
-                         gtol: float = 1e-10,
-                         rhoend: float = 1e-10,
                          tol_method: str = 'Manual',
-                         max_layers: int = 15) -> None:
+                         max_layers: int = 100) -> None:
 
     Li6 = Nucleus('Li6', 1)
     vecs = np.eye(Li6.d_H)
@@ -228,9 +228,6 @@ def ADAPT_plot_evolution(method: str = 'SLSQP',
 
         vqe = ADAPTVQE(ansatz, method='SLSQP',
                        conv_criterion='None',
-                       ftol=1e-10,
-                       gtol=1e-10,
-                       rhoend=1e-10,
                        tol_method='Manual',
                        max_layers=15)
 
@@ -595,22 +592,8 @@ def one_step_test(nuc: str,
 if __name__ == '__main__':
     #Gradient_evolution(stop_at_threshold=False, ftol=0.0, gtol=0.0, max_layers=15, method='L-BFGS-B')
     #tol_test(n_v=0, max_layers=10,test_threshold=1e-10, stop_at_threshold=True,conv_criterion='Repeated op')
-    #ADAPT_plain_test(n_v=1, method='SLSQP', max_layers=15, pool_format='Reduced', conv_criterion='Repeated op', ftol)
     #pool_format_test(nuc='He8',n_v=0)
     #ADAPT_v_performance(nuc = 'He8')
     #one_step_test(nuc = 'Li6', n_v = 1, method = 'SLSQP')
-    # time1 = time()
     # parameters_evolution(nuc = 'He8', method='SLSQP')
-    # time2 = time()
-    # print(time2-time1)
-    He8 = Nucleus('He8', 1)
-    ansatz = ADAPTAnsatz(He8, np.eye(He8.d_H)[0], pool_format='Reduced')
-    print(f'He8',len(ansatz.operator_pool))
-
-    Be10 = Nucleus('Be10', 1)
-    ansatz = ADAPTAnsatz(Be10, np.eye(Be10.d_H)[0], pool_format='Reduced')
-    print(f'Be10',len(ansatz.operator_pool))
-
-    Li6 = Nucleus('Li6', 1)
-    ansatz = ADAPTAnsatz(Li6, np.eye(Li6.d_H)[0], pool_format='Reduced')
-    print(f'Li6',len(ansatz.operator_pool))
+    ADAPT_plain_test(nuc = 'Be10', n_v = 0)

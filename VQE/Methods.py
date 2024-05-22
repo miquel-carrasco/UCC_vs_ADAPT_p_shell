@@ -56,7 +56,7 @@ class VQE():
 class UCCVQE(VQE):
 
     def __init__(self, Ansatz: UCCAnsatz,
-                 init_param: list[float],
+                 init_param: list,
                  test_threshold: float = 1e-6,
                  method: str = 'SLSQP',
                  ftol: float = 1e-7,
@@ -88,7 +88,7 @@ class UCCVQE(VQE):
             pass
         self.ansatz.count_fcalls = False
     
-    def callback(self, params: list[float]) -> None:
+    def callback(self, params: list) -> None:
         """Callback function to store the energy and parameters at each iteration
         and stop the optimization if the threshold is reached."""
 
@@ -112,11 +112,11 @@ class ADAPTVQE(VQE):
                  conv_criterion: str = 'Repeated op',
                  test_threshold: float = 1e-6,
                  stop_at_threshold: bool = True,
-                 ftol: float = 1e-10,
-                 gtol: float = 1e-10,
-                 rhoend: float = 1e-10,
+                 ftol: float = 1e-7,
+                 gtol: float = 1e-3,
+                 rhoend: float = 1e-5,
                  tol_method: str = 'Manual',
-                 max_layers: int = 15,
+                 max_layers: int = 100,
                  return_data: bool = False) -> None:
         
         super().__init__(test_threshold, method, ftol, gtol, rhoend, stop_at_threshold)
@@ -143,8 +143,7 @@ class ADAPTVQE(VQE):
             print('Invalid tolerance method. Choose between "Manual" and "Automatic"')
             exit()
     
-    def run(self) -> tuple[list[TwoBodyExcitationOperator], list[float],list[float], 
-                           list[float], list[float], list[int]]:
+    def run(self) -> tuple:
         """Runs the ADAPT VQE algorithm"""
 
         self.ansatz.fcalls = 0
@@ -215,8 +214,7 @@ class ADAPTVQE(VQE):
             return  gradient_layers, opt_grad_layers, energy_layers, rel_error_layers, fcalls_layers
         
     
-    def run_one_step(self, final_run: bool = True) -> tuple[list[TwoBodyExcitationOperator],list[float],list[float],
-                                                      list[float], list[float], list[int]]:
+    def run_one_step(self, final_run: bool = True) -> tuple:
         """Runs the ADAPT VQE algorithm one step at a time"""
 
         self.ansatz.fcalls = 0
@@ -326,8 +324,7 @@ class ADAPTVQE(VQE):
             return  gradient_layers, opt_grad_layers, energy_layers, rel_error_layers, fcalls_layers
         
 
-    def run_n_layers(self, n_layers: int) -> tuple[list[TwoBodyExcitationOperator],list[float],list[float],
-                                                    list[float], list[float], list[int]]:
+    def run_n_layers(self, n_layers: int) -> tuple:
         """Runs the ADAPT VQE algorithm for a given number of layers"""
 
         self.ansatz.fcalls = 0
@@ -399,7 +396,7 @@ class ADAPTVQE(VQE):
             return  gradient_layers, opt_grad_layers, energy_layers, rel_error_layers, fcalls_layers
 
 
-    def callback(self, params: list[float]) -> None:
+    def callback(self, params: list) -> None:
         """Callback function to store the energy and parameters at each iteration
         and stop the optimization if the threshold is reached."""
 

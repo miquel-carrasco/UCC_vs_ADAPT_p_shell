@@ -12,7 +12,7 @@ class Ansatz():
                  nucleus: Nucleus,
                  ref_state: np.ndarray,
                  pool_format: str = 'Reduced',
-                 operators_list: list[TwoBodyExcitationOperator] = []) -> None:
+                 operators_list: list = []) -> None:
         
 
         self.nucleus: Nucleus = nucleus
@@ -34,7 +34,7 @@ class Ansatz():
         self.count_fcalls: bool = False
         self.ansatz: np.ndarray = self.ref_state
 
-    def reduce_operators(self) -> list[TwoBodyExcitationOperator]:
+    def reduce_operators(self) -> list:
         """Returns the list of non repeated operators used in the cluster"""
 
         operators = []
@@ -48,7 +48,7 @@ class Ansatz():
         return operators
     
 
-    def only_acting_operators(self) -> list[TwoBodyExcitationOperator]:
+    def only_acting_operators(self) -> list:
         """Returns the list of operators that act on the reference state"""
 
         self.operator_pool = self.reduce_operators()
@@ -67,7 +67,7 @@ class UCCAnsatz(Ansatz):
                  ref_state: np.ndarray, 
                  T_n: int = 1,
                  pool_format: str = 'Only acting',
-                 operators_list: list[TwoBodyExcitationOperator] = []) -> None:
+                 operators_list: list = []) -> None:
         
         super().__init__(nucleus=nucleus, ref_state=ref_state, pool_format=pool_format, operators_list=operators_list)
         
@@ -76,7 +76,7 @@ class UCCAnsatz(Ansatz):
         self.build_ansatz(parameters)
 
 
-    def build_ansatz(self, parameters: list[float]) -> np.ndarray:
+    def build_ansatz(self, parameters: list) -> np.ndarray:
         """Returns the ansatz"""
 
         ansatz = self.ref_state
@@ -106,7 +106,7 @@ class UCCAnsatz(Ansatz):
                     return False
         return True
     
-    def lanscape(self, parameters: list[float], t: float, n: int) -> float:
+    def lanscape(self, parameters: list, t: float, n: int) -> float:
         """Returns the energy of the ansatz with the parameter t in the n-th position"""
 
         parameters = np.array(parameters)
@@ -120,7 +120,7 @@ class ADAPTAnsatz(Ansatz):
                  nucleus: Nucleus,
                  ref_state: np.ndarray,
                  pool_format: str = 'Reduced',
-                 operators_list: list[TwoBodyExcitationOperator] = []) -> None:
+                 operators_list: list = []) -> None:
         
         super().__init__(nucleus, ref_state, pool_format, operators_list)
 
@@ -128,7 +128,7 @@ class ADAPTAnsatz(Ansatz):
         self.minimum: bool = False
 
 
-    def build_ansatz(self, parameters: list[float]) -> np.ndarray:
+    def build_ansatz(self, parameters: list) -> np.ndarray:
         """Returns the ansatz"""
 
         ansatz = self.ref_state
@@ -137,14 +137,14 @@ class ADAPTAnsatz(Ansatz):
         return ansatz
 
     
-    def build_ansatz_n_layers(self, parameters: list[float], n_layers: int) -> np.ndarray:
+    def build_ansatz_n_layers(self, parameters: list, n_layers: int) -> np.ndarray:
 
         ansatz = self.ref_state
         if n_layers < len(self.added_operators):
             for n in range(0,len(self.added_operators)-n_layers):
                 ansatz = expm(parameters[n]*self.added_operators[n].matrix.torray()) @ ansatz
 
-    def energy(self, parameters: list[float]) -> float:
+    def energy(self, parameters: list) -> float:
         """Returns the energy of the ansatz"""
 
         if len(parameters) != 0:
@@ -164,7 +164,7 @@ class ADAPTAnsatz(Ansatz):
         return new_ansatz.conj().T @ self.nucleus.H @ new_ansatz
     
 
-    def energy_n_layers(self, parameters: list[float], n_layers: int) -> float:
+    def energy_n_layers(self, parameters: list, n_layers: int) -> float:
 
         if self.count_fcalls == True:
             self.fcalls += 1
@@ -173,7 +173,7 @@ class ADAPTAnsatz(Ansatz):
         return new_ansatz.conj().T @ self.nucleus.H @ new_ansatz
 
 
-    def choose_operator(self) -> tuple[TwoBodyExcitationOperator, float]:
+    def choose_operator(self) -> tuple:
         """Selects the next operator based on its gradient and adds it to the list"""
 
         gradients = []

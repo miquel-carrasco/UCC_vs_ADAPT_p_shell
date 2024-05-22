@@ -10,7 +10,7 @@ from numba import jit, cuda
 class TwoBodyExcitationOperator():
     "Class to define an antihermitian operator corresponding to a two-body excitation."
 
-    def __init__(self, label: int, H2b: float, ijkl: list[int], matrix: lil_matrix, commutator: np.ndarray) -> None:
+    def __init__(self, label: int, H2b: float, ijkl: list, matrix: lil_matrix, commutator: np.ndarray) -> None:
         self.label = label
         self.H2b = H2b
         self.ijkl = ijkl
@@ -43,7 +43,7 @@ class Nucleus():
             H[int(line[0]), int(line[1])] = line[2]
         return H
     
-    def states(self) -> list[tuple]:
+    def states(self) -> list:
 
         states = []
         mb_path = os.path.join(self.data_folder, f'mb_basis_2.dat')
@@ -58,7 +58,7 @@ class Nucleus():
             states.append(tuple(sp_labels))
         return states
     
-    def operators_list(self) -> list[TwoBodyExcitationOperator]:
+    def operators_list(self) -> list:
         """Returns the list of ALL antihermitian operators corresponding
             to two-body excitations. Each operator is represented by a TwoBodyExcitationOperator object."""
         
@@ -98,7 +98,7 @@ class Nucleus():
 
         return operators
     
-    def sparse_operators(self) -> list[TwoBodyExcitationOperator]:
+    def sparse_operators(self) -> list:
         "Returns the list of operators with sparse matrices."
 
         operators = []
@@ -128,7 +128,7 @@ class Nucleus():
         return operators
     
 
-    def excitation_numbers(self, state: tuple, indices: list[int]) -> tuple:
+    def excitation_numbers(self, state: tuple, indices: list) -> tuple:
 
         if indices[2] in state and indices[3] in state:
             new_state = list(state)

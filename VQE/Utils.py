@@ -4,7 +4,7 @@ import random
 from itertools import permutations
 
 
-def labels_all_combinations(label_list: list[int]):
+def labels_all_combinations(label_list: list):
     """Returns all combinations of operators in the list."""
     
     n = len(label_list)
