@@ -59,13 +59,9 @@ class UCCVQE(VQE):
                  init_param: list,
                  test_threshold: float = 1e-6,
                  method: str = 'SLSQP',
-                 ftol: float = 1e-7,
-                 gtol: float = 1e-3,
-                 rhoend: float = 1e-5,
                  stop_at_threshold: bool = True) -> None:
         
-        super().__init__(test_threshold=test_threshold, method=method, ftol=ftol,
-                         gtol=gtol, rhoend=rhoend, stop_at_threshold=stop_at_threshold)
+        super().__init__(test_threshold=test_threshold, method=method, stop_at_threshold=stop_at_threshold)
         
         self.ansatz = Ansatz
         self.nucleus = Ansatz.nucleus
@@ -74,6 +70,11 @@ class UCCVQE(VQE):
     
     def run(self) -> float:
         """Runs the VQE algorithm"""
+
+        print("\n\n\n")
+        print(" --------------------------------------------------------------------------")
+        print("                              UCC for ", self.nucleus.name)                 
+        print(" --------------------------------------------------------------------------")
 
         self.ansatz.fcalls = 0
         E0 = self.ansatz.energy(self.parameters)
@@ -87,7 +88,7 @@ class UCCVQE(VQE):
         except OptimizationConvergedException:
             pass
         self.ansatz.count_fcalls = False
-    
+
     def callback(self, params: list) -> None:
         """Callback function to store the energy and parameters at each iteration
         and stop the optimization if the threshold is reached."""
@@ -99,6 +100,7 @@ class UCCVQE(VQE):
         self.rel_error.append(abs((E - self.ansatz.nucleus.eig_val[0])/self.ansatz.nucleus.eig_val[0]))
         self.fcalls.append(self.ansatz.fcalls)
         self.final_parameters = params
+        print(f' Energy: {E}')
         if self.rel_error[-1] < self.test_threshold:
             self.success = True
             raise OptimizationConvergedException
@@ -145,6 +147,11 @@ class ADAPTVQE(VQE):
     
     def run(self) -> tuple:
         """Runs the ADAPT VQE algorithm"""
+
+        print("\n\n\n")
+        print(" --------------------------------------------------------------------------")
+        print("                            ADAPT for ", self.nucleus.name)                 
+        print(" --------------------------------------------------------------------------")
 
         self.ansatz.fcalls = 0
         E0 = self.ansatz.energy(self.parameters)
@@ -408,6 +415,7 @@ class ADAPTVQE(VQE):
         self.fcalls.append(self.ansatz.fcalls)
         self.tot_operators+=(self.fcalls[-1]-self.fcalls[-2])*len(self.ansatz.added_operators)
         self.tot_operators_layers.append(self.tot_operators)
+        print(f' Energy: {E}')
         if self.rel_error[-1] < self.test_threshold and self.stop_at_threshold:
             self.success = True
             self.ansatz.minimum = True

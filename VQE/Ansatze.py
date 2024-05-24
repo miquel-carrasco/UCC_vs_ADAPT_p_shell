@@ -4,6 +4,7 @@ from scipy.linalg import expm
 import random
 from numba import jit, cuda
 from  scipy.sparse.linalg import expm_multiply
+from scipy.sparse import lil_matrix, csc_matrix
 
 
 class Ansatz():
@@ -18,7 +19,7 @@ class Ansatz():
 
         self.nucleus: Nucleus = nucleus
         self.ref_state: np.ndarray = ref_state
-        self.all_operators: list[TwoBodyExcitationOperator] = self.nucleus.operators
+        self.all_operators: list = self.nucleus.operators
 
         if pool_format == 'All':
             self.operator_pool = nucleus.operators
@@ -55,7 +56,7 @@ class Ansatz():
         self.operator_pool = self.reduce_operators()
         operators = []
         for op in self.operator_pool:
-            if np.allclose(op.matrix @ self.ref_state, np.zeros(len(self.ref_state))) == False:
+            if np.allclose(op.matrix.dot(self.ref_state), np.zeros(len(self.ref_state))) == False:
                 operators.append(op)
         return operators
 
@@ -92,7 +93,7 @@ class UCCAnsatz(Ansatz):
         ansatz = self.build_ansatz(parameters)
         if self.count_fcalls == True:
             self.fcalls += 1
-        return ansatz.conj().T @ self.nucleus.H @ ansatz
+        return ansatz.conj().T.dot(self.nucleus.H.dot(ansatz))
 
     def is_lie_algebra(self) -> bool:
         """Returns True if the operators form a Lie algebra"""
@@ -152,9 +153,9 @@ class ADAPTAnsatz(Ansatz):
             if self.count_fcalls == True:
                 self.fcalls += 1
             new_ansatz = self.build_ansatz(parameters)
-            return new_ansatz.conj().T @ self.nucleus.H @ new_ansatz
+            return new_ansatz.conj().T.dot(self.nucleus.H.dot(new_ansatz))
         else:
-            return self.ansatz.conj().T @ self.nucleus.H @ self.ansatz
+            return self.ansatz.conj().T.dot(self.nucleus.H.dot(self.ansatz))
 
 
     def energy_one_step(self, parameter: float) -> float:
@@ -162,7 +163,7 @@ class ADAPTAnsatz(Ansatz):
         if self.count_fcalls == True:
             self.fcalls += 1
         new_ansatz = expm(self.added_operators[-1].matrix*parameter).dot(self.ansatz)
-        return new_ansatz.conj().T @ self.nucleus.H @ new_ansatz
+        return new_ansatz.conj().T.dot(self.nucleus.H.dot(new_ansatz))
     
 
     def energy_n_layers(self, parameters: list, n_layers: int) -> float:
@@ -178,7 +179,7 @@ class ADAPTAnsatz(Ansatz):
         """Selects the next operator based on its gradient and adds it to the list"""
 
         gradients = []
-        gradients = [abs(self.ansatz.conj().T @ op.commutator @ self.ansatz) for op in self.operator_pool]
+        gradients = [abs(self.ansatz.conj().T.dot(op.commutator.dot(self.ansatz))) for op in self.operator_pool]
         max_gradient = max(gradients)
         max_operator = self.operator_pool[gradients.index(max_gradient)]
         return max_operator,max_gradient

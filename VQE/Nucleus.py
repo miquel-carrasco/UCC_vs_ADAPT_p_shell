@@ -4,6 +4,7 @@ import os
 import warnings
 import scipy
 from scipy.sparse import lil_matrix, csc_matrix
+from scipy.sparse.linalg import eigsh
 import scipy.sparse
 from numba import jit, cuda
 
@@ -30,7 +31,7 @@ class Nucleus():
         self.data_folder = os.path.join(f'nuclei/{self.name}_data')
         self.states = self.states()
         self.H: csc_matrix = self.hamiltonian_matrix()
-        self.eig_val, self.eig_vec = la.eigh(self.H)
+        self.eig_val, self.eig_vec = eigsh(self.H)
         self.operators = self.sparse_operators()
     
 

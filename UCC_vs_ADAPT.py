@@ -120,10 +120,24 @@ if __name__ == '__main__':
     He8 = Nucleus('He8',1)
     Be10= Nucleus('Be10',1)
 
-    Li6_ansatz = UCCAnsatz(Li6,ref_state=np.eye(Li6.d_H)[1],pool_format='Reduced')
-    He8_ansatz = UCCAnsatz(He8,ref_state=np.eye(He8.d_H)[0],pool_format='Reduced')
-    Be10_ansatz = UCCAnsatz(Be10,ref_state=np.eye(Be10.d_H)[0],pool_format='Reduced')
+    # time1= perf_counter()
+    # Li6_ansatz = UCCAnsatz(Li6,ref_state=np.eye(Li6.d_H)[1],pool_format='Reduced')
+    # time2 = perf_counter()
+    # timeLi6 = time2-time1
+    # print('Li6',len(Li6_ansatz.operator_pool),timeLi6)
 
-    print('Li6',len(Li6_ansatz.operator_pool))
-    print('He8',len(He8_ansatz.operator_pool))
-    print('Be10',len(Be10_ansatz.operator_pool))
+
+    He8_ansatz = UCCAnsatz(He8,ref_state=np.eye(He8.d_H)[1],pool_format='Reduced')
+    par = np.random.uniform(low=-np.pi, high=np.pi,size=len(He8_ansatz.operator_pool))
+    UCC = UCCVQE(He8_ansatz,method='L-BFGS-B',init_param=par)
+    time1= perf_counter()
+    UCC.run()
+    time2 = perf_counter()
+    print(time2-time1)
+
+
+    # time1= perf_counter()
+    # Be10_ansatz = UCCAnsatz(Be10,ref_state=np.eye(Be10.d_H)[0],pool_format='Reduced')
+    # time2 = perf_counter()
+    # timeBe10 = time2-time1
+    # print('Be10',len(Be10_ansatz.operator_pool),timeBe10)
