@@ -35,7 +35,7 @@ class Nucleus():
         self.operators = self.sparse_operators()
     
 
-    def hamiltonian_matrix(self) -> np.array:
+    def hamiltonian_matrix(self) -> csc_matrix:
         "Returns the hamiltonian matrix of the nucleus."
         file_path = os.path.join(self.data_folder, f'{self.name}.dat')
         H = np.zeros((self.d_H, self.d_H))

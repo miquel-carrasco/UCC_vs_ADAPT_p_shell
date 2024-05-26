@@ -5,6 +5,8 @@ import random
 from numba import jit, cuda
 from  scipy.sparse.linalg import expm_multiply
 from scipy.sparse import lil_matrix, csc_matrix
+from time import perf_counter
+import threading
 
 
 class Ansatz():
@@ -138,13 +140,6 @@ class ADAPTAnsatz(Ansatz):
             ansatz = expm_multiply(parameters[i]*op.matrix, ansatz, traceA = 0.0)
         return ansatz
 
-    
-    def build_ansatz_n_layers(self, parameters: list, n_layers: int) -> np.ndarray:
-
-        ansatz = self.ref_state
-        if n_layers < len(self.added_operators):
-            for n in range(0,len(self.added_operators)-n_layers):
-                ansatz = expm(parameters[n]*self.added_operators[n].matrix.torray()) @ ansatz
 
     def energy(self, parameters: list) -> float:
         """Returns the energy of the ansatz"""
@@ -153,33 +148,33 @@ class ADAPTAnsatz(Ansatz):
             if self.count_fcalls == True:
                 self.fcalls += 1
             new_ansatz = self.build_ansatz(parameters)
-            return new_ansatz.conj().T.dot(self.nucleus.H.dot(new_ansatz))
+            E = new_ansatz.conj().T.dot(self.nucleus.H.dot(new_ansatz))
+            return E
         else:
-            return self.ansatz.conj().T.dot(self.nucleus.H.dot(self.ansatz))
+            E = self.ansatz.conj().T.dot(self.nucleus.H.dot(self.ansatz))
+            return E
 
 
-    def energy_one_step(self, parameter: float) -> float:
-
-        if self.count_fcalls == True:
-            self.fcalls += 1
-        new_ansatz = expm(self.added_operators[-1].matrix*parameter).dot(self.ansatz)
-        return new_ansatz.conj().T.dot(self.nucleus.H.dot(new_ansatz))
+    def energy_one_step(self, parameter: list) -> float:
+        
+        if len(self.added_operators) != 0:
+            if self.count_fcalls == True:
+                self.fcalls += 1
+            new_ansatz = expm_multiply(self.added_operators[-1].matrix*parameter[0], self.ansatz, traceA = 0.0)
+            E = new_ansatz.conj().T.dot(self.nucleus.H.dot(new_ansatz))
+            return E
+        else:
+            E = self.ansatz.conj().T.dot(self.nucleus.H.dot(self.ansatz))
+            return E
     
-
-    def energy_n_layers(self, parameters: list, n_layers: int) -> float:
-
-        if self.count_fcalls == True:
-            self.fcalls += 1
-        for n in range(n_layers):
-            new_ansatz = expm(self.added_operators[-n].matrix*parameters[-n]).dot(self.ansatz)
-        return new_ansatz.conj().T @ self.nucleus.H @ new_ansatz
 
 
     def choose_operator(self) -> tuple:
         """Selects the next operator based on its gradient and adds it to the list"""
 
         gradients = []
-        gradients = [abs(self.ansatz.conj().T.dot(op.commutator.dot(self.ansatz))) for op in self.operator_pool]
+        sigma = self.nucleus.H.dot(self.ansatz)
+        gradients = [abs(2*(sigma.conj().T.dot(op.matrix.dot(self.ansatz))).real) for op in self.operator_pool]
         max_gradient = max(gradients)
         max_operator = self.operator_pool[gradients.index(max_gradient)]
         return max_operator,max_gradient
