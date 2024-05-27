@@ -75,10 +75,10 @@ class UCCVQE(VQE):
     def run(self) -> float:
         """Runs the VQE algorithm"""
 
-        print("\n\n\n")
-        print(" --------------------------------------------------------------------------")
-        print("                              UCC for ", self.nucleus.name)                 
-        print(" --------------------------------------------------------------------------")
+        # print("\n\n\n")
+        # print(" --------------------------------------------------------------------------")
+        # print("                              UCC for ", self.nucleus.name)                 
+        # print(" --------------------------------------------------------------------------")
 
         self.ansatz.fcalls = 0
         E0 = self.ansatz.energy(self.parameters)
@@ -104,7 +104,7 @@ class UCCVQE(VQE):
         self.rel_error.append(abs((E - self.ansatz.nucleus.eig_val[0])/self.ansatz.nucleus.eig_val[0]))
         self.fcalls.append(self.ansatz.fcalls)
         self.final_parameters = params
-        print(f' Energy: {E}')
+        # print(f' Energy: {E}')
         if self.rel_error[-1] < self.test_threshold:
             self.success = True
             raise OptimizationConvergedException
@@ -152,10 +152,10 @@ class ADAPTVQE(VQE):
     def run(self) -> tuple:
         """Runs the ADAPT VQE algorithm"""
 
-        print("\n\n\n")
-        print(" --------------------------------------------------------------------------")
-        print("                            ADAPT for ", self.nucleus.name)                 
-        print(" --------------------------------------------------------------------------")
+        # print("\n\n\n")
+        # print(" --------------------------------------------------------------------------")
+        # print("                            ADAPT for ", self.nucleus.name)                 
+        # print(" --------------------------------------------------------------------------")
 
         self.ansatz.fcalls = 0
         E0 = self.ansatz.energy(self.parameters)

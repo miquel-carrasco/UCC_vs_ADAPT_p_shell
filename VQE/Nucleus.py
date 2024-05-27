@@ -123,7 +123,7 @@ class Nucleus():
                         operator_matrix += -this_excitation.T
                         commutator = self.H.dot(operator_matrix)- operator_matrix.dot(self.H)
                 if operator_matrix.count_nonzero() != 0:
-                    operators.append(TwoBodyExcitationOperator(label, H2b, indices, operator_matrix.tocsc(), commutator))
+                    operators.append(TwoBodyExcitationOperator(label, H2b, indices, operator_matrix.toarray(), commutator))
                     label += 1
         
         return operators
