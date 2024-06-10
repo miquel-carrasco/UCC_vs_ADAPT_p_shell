@@ -34,7 +34,6 @@ class Ansatz():
 
 
         self.fcalls = 0
-        self.op_applied=0
         self.count_fcalls: bool = False
         self.ansatz: np.ndarray = self.ref_state
 
@@ -78,6 +77,7 @@ class UCCAnsatz(Ansatz):
         self.T_n: int = T_n
         parameters: np.ndarray = np.zeros(len(self.operator_pool))
         self.build_ansatz(parameters)
+        self.n_layers = len(self.operator_pool)
 
 
     def build_ansatz(self, parameters: list) -> np.ndarray:
@@ -89,13 +89,31 @@ class UCCAnsatz(Ansatz):
                 ansatz = expm_multiply(parameters[i]/self.T_n * op.matrix, ansatz, traceA = 0.0)
         return ansatz
     
-    def energy(self, parameters: np.ndarray) -> float:
+    def energy(self, parameters: list) -> float:
         """Returns the energy of the ansatz"""
 
-        ansatz = self.build_ansatz(parameters)
-        if self.count_fcalls == True:
-            self.fcalls += 1
-        return ansatz.conj().T.dot(self.nucleus.H.dot(ansatz))
+        if len(parameters) != 0:
+            if self.count_fcalls == True:
+                self.fcalls += 1
+            new_ansatz = self.build_ansatz(parameters)
+            E = new_ansatz.conj().T.dot(self.nucleus.H.dot(new_ansatz))
+            return E
+        else:
+            E = self.ansatz.conj().T.dot(self.nucleus.H.dot(self.ansatz))
+            return E
+
+    def sequential_energy(self, parameter: list) -> float:
+        """Returns the energy of the ansatz"""
+
+        if self.n_layers != 0:
+            if self.count_fcalls == True:
+                self.fcalls += 1
+            self.ansatz = expm_multiply(self.operator_pool[self.n_layers-1].matrix*parameter[0], self.ansatz, traceA = 0.0)
+            E = self.ansatz.conj().T.dot(self.nucleus.H.dot(self.ansatz))
+            return E
+        else:
+            E = self.ansatz.conj().T.dot(self.nucleus.H.dot(self.ansatz))
+            return E
 
     def is_lie_algebra(self) -> bool:
         """Returns True if the operators form a Lie algebra"""
@@ -110,7 +128,7 @@ class UCCAnsatz(Ansatz):
                     return False
         return True
     
-    def lanscape(self, parameters: list, t: float, n: int) -> float:
+    def landscape(self, parameters: list, t: float, n: int) -> float:
         """Returns the energy of the ansatz with the parameter t in the n-th position"""
 
         parameters = np.array(parameters)
@@ -128,8 +146,9 @@ class ADAPTAnsatz(Ansatz):
         
         super().__init__(nucleus, ref_state, pool_format, operators_list)
 
-        self.added_operators:list[TwoBodyExcitationOperator] = []
+        self.added_operators: list = []
         self.minimum: bool = False
+        self.E0: float = self.energy([])
 
 
     def build_ansatz(self, parameters: list) -> np.ndarray:

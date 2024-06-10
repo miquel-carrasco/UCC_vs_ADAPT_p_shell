@@ -30,8 +30,8 @@ class Nucleus():
         self.M = M
         self.data_folder = os.path.join(f'nuclei/{self.name}_data')
         self.states = self.states()
-        self.H: csc_matrix = self.hamiltonian_matrix()
-        self.eig_val, self.eig_vec = eigsh(self.H)
+        self.H = self.hamiltonian_matrix()
+        self.eig_val, self.eig_vec = la.eigh(self.H)
         self.operators = self.sparse_operators()
     
 
@@ -42,7 +42,7 @@ class Nucleus():
         H_data = np.loadtxt(file_path,delimiter=' ', dtype=float)
         for line in H_data:
             H[int(line[0]), int(line[1])] = line[2]
-        return csc_matrix(H)
+        return H
     
     def states(self) -> list:
 
@@ -110,20 +110,20 @@ class Nucleus():
         for h in H2b_data:
             indices = [int(h[1]), int(h[2]), int(h[3]), int(h[4])]
             if indices[0] < indices[1] and indices[2] < indices[3]:
-                operator_matrix = lil_matrix((self.d_H, self.d_H))
+                operator_matrix = np.zeros((self.d_H, self.d_H))
                 for state in self.states:
                     new_state = self.excitation_numbers(state, indices)
                     if new_state in self.states:
                         H2b = float(h[0])
                         column = self.states.index(state)
                         row = self.states.index(new_state)
-                        this_excitation = lil_matrix((self.d_H, self.d_H))
+                        this_excitation = np.zeros((self.d_H, self.d_H))
                         this_excitation[row, column] = 1
                         operator_matrix += this_excitation
                         operator_matrix += -this_excitation.T
-                        commutator = self.H.dot(operator_matrix)- operator_matrix.dot(self.H)
-                if operator_matrix.count_nonzero() != 0:
-                    operators.append(TwoBodyExcitationOperator(label, H2b, indices, operator_matrix.toarray(), commutator))
+                        commutator = self.H.dot(operator_matrix) - operator_matrix.dot(self.H)
+                if np.allclose(operator_matrix, np.zeros((self.d_H, self.d_H))) == False:
+                    operators.append(TwoBodyExcitationOperator(label, H2b, indices, operator_matrix, commutator))
                     label += 1
         
         return operators

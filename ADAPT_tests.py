@@ -8,6 +8,7 @@ import os
 from tqdm import tqdm
 import pandas as pd
 from time import time
+import concurrent.futures
 
 from VQE.Nucleus import Nucleus
 from VQE.Ansatze import UCCAnsatz, ADAPTAnsatz
@@ -515,16 +516,15 @@ def pool_format_test(nuc: str,
     plt.show()
 
 
-def one_step_test(nuc: str, 
-                  n_v: int = 1,
+def one_step_test(nuc: str,
                   method: str = 'SLSQP',
                   test_threshold: float = 1e-6,
                   stop_at_threshold: bool = True,
-                  ftol: float = 1e-10,
-                  gtol: float = 1e-10,
                   tol_method: str = 'Manual',
                   conv_criterion: str = 'Repeated',
-                  pool_format = 'Reduced') -> None:
+                  pool_format: str = 'Reduced',
+                  max_layers: int = 100,
+                  one_step_layers: list = [100]) -> None:
     
     params = {'axes.linewidth': 1.4,
             'axes.labelsize': 16,
@@ -538,67 +538,95 @@ def one_step_test(nuc: str,
             "font.family": "serif",
             "font.serif": ["Palatino"]
             }
-    plt.rcParams.update(params)
+    # plt.rcParams.update(params)
 
     nucleus = Nucleus(nuc, 1)
-    ref_state = np.eye(nucleus.d_H)[n_v]
 
-    ansatz = ADAPTAnsatz(nucleus, ref_state, pool_format=pool_format)
-    vqe = ADAPTVQE(ansatz,
-                   method=method,
-                   test_threshold=test_threshold,
-                   stop_at_threshold=stop_at_threshold,
-                   ftol=ftol,
-                   gtol=gtol,
-                   tol_method=tol_method,
-                   conv_criterion=conv_criterion,
-                   max_layers=60)
-    vqe.run()
-    plt.plot(vqe.tot_operators_layers, vqe.rel_error, label='All parameters min')
+    for n in range(15):
+        ref_state = np.random.uniform(-1,1,nucleus.d_H)
+        ref_state = ref_state/np.linalg.norm(ref_state)
+        # ref_state = np.eye(nucleus.d_H)[1]
 
-
-    ansatz = ADAPTAnsatz(nucleus, ref_state, pool_format=pool_format)
-    vqe = ADAPTVQE(ansatz,
-                   method=method,
-                   test_threshold=test_threshold,
-                   stop_at_threshold=stop_at_threshold,
-                   ftol=ftol,
-                   gtol=gtol,
-                   tol_method=tol_method,
-                   conv_criterion=conv_criterion,
-                   max_layers=30)
-    vqe.run_one_step(final_run=False)
-    plt.plot(vqe.tot_operators_layers, vqe.rel_error, label='Step by step (100 layers)')
-
-    for max_layers in [5,10,11,15]:
         ansatz = ADAPTAnsatz(nucleus, ref_state, pool_format=pool_format)
         vqe = ADAPTVQE(ansatz,
                     method=method,
                     test_threshold=test_threshold,
                     stop_at_threshold=stop_at_threshold,
-                    ftol=ftol,
-                    gtol=gtol,
+                    tol_method=tol_method,
+                    conv_criterion=conv_criterion)
+        vqe.run()
+        label = f'ADAPT ({len(vqe.parameters)} layers)' if n==0 else None
+        plt.plot(vqe.tot_operators_layers, vqe.rel_error, label=label, color='blue', alpha = 0.5)
+
+
+        ansatz = ADAPTAnsatz(nucleus, ref_state, pool_format=pool_format)
+        vqe = ADAPTVQE(ansatz,
+                    method=method,
+                    test_threshold=test_threshold,
+                    stop_at_threshold=stop_at_threshold,
                     tol_method=tol_method,
                     conv_criterion=conv_criterion,
                     max_layers=max_layers)
-        vqe.run_one_step(final_run=True)
-        plt.plot(vqe.tot_operators_layers, vqe.rel_error, label=f'Step by step + final run ({max_layers} layers)') 
+        vqe.run_one_step(final_run=False)
+        label = f'Seq-ADAPT ({len(vqe.parameters)} layers)' if n==0 else None
+        plt.plot(vqe.tot_operators_layers, vqe.rel_error, color = 'red', alpha = 0.5, label=label)
+
+
+        colors = ['green', 'orange', 'purple', 'brown', 'pink']
+        for i,max_layers in enumerate(one_step_layers):
+            ansatz = ADAPTAnsatz(nucleus, ref_state, pool_format=pool_format)
+            vqe = ADAPTVQE(ansatz,
+                        method=method,
+                        test_threshold=test_threshold,
+                        stop_at_threshold=stop_at_threshold,
+                        tol_method=tol_method,
+                        conv_criterion=conv_criterion,
+                        max_layers=max_layers)
+            vqe.run_one_step(final_run=True)
+            label = f'Seq-ADAPT + final run ({max_layers} layers)' if n==0 else None
+            plt.plot(vqe.tot_operators_layers, vqe.rel_error, label=label, color=colors[i], alpha = 0.5) 
 
     plt.yscale('log')
-    plt.xlabel('Operators used')
+    plt.xlabel('Circuit depth')
     plt.ylabel('Relative error')
     plt.legend(fontsize='small')
-    plt.title('Step by step ADAPT minimization')
+    plt.title(f'ADAPT vs Seq-ADAPT ({method})')
 
-    plt.savefig(f'figures/{nuc}/ADAPT_minimization_step_by_step.pdf')   
+    plt.savefig(f'figures/{nuc}/Seq_ADAPT_{method}_vrandom.pdf')
+    print(f'{nuc} done!')
 
 if __name__ == '__main__':
-    #Gradient_evolution(stop_at_threshold=False, ftol=0.0, gtol=0.0, max_layers=15, method='L-BFGS-B')
-    #tol_test(n_v=0, max_layers=10,test_threshold=1e-10, stop_at_threshold=True,conv_criterion='Repeated op')
-    #ADAPT_plain_test(n_v=1, method='SLSQP', max_layers=15, pool_format='Reduced', conv_criterion='Repeated op', ftol)
-    pool_format_test(nuc='Li6',n_v=1)
-    #ADAPT_v_performance(nuc = 'He8')
-    #one_step_test(nuc = 'Li6', n_v = 1, method = 'SLSQP')
-    # parameters_evolution(nuc = 'He8', method='SLSQP')
-    # time2 = time()
-    # print(time2-time1)
+    nucs_layers = {'B8': [30,40,60],
+                   'B10': [80,90,120],
+                   'Be6': [4,5,6],
+                   'Be8': [50,70,90],
+                   'Be10': [50,70,90],
+                   'C10': [50,70,90],
+                   'He8': [4,5,6],
+                   'Li6': [9,10,15,20],
+                   'Li8': [30,40,60],
+                   'Li10': [9,10,15,20],
+                   'N10': [9,10,15,20]}
+    
+    # nucs = ['B8',
+    #         'B10',
+    #         'Be6',
+    #         'Be8',
+    #         'Be10',
+    #         'C10',
+    #         'He8',
+    #         'Li6',
+    #         'Li8',
+    #         'Li10',
+    #         'N10']
+
+    nucs = ['Li8',
+            'B8']
+    
+    futures = []
+    
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        for nuc in nucs:
+            futures.append(executor.submit(one_step_test, nuc, method='L-BFGS-B', test_threshold=1e-4, stop_at_threshold=True, tol_method='Manual', conv_criterion='Repeated', pool_format='Reduced', max_layers=300, one_step_layers=nucs_layers[nuc]))
+        for future in futures:
+            future.result()

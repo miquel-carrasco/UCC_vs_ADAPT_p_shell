@@ -14,7 +14,7 @@ class OptimizationConvergedException(Exception):
 class VQE():
     """Class to define the Variational Quantum Eigensolver (VQE) algorithm"""
 
-    def __init__(self, test_threshold: float = 1e-6,
+    def __init__(self, test_threshold: float = 1e-4,
                method: str = 'SLSQP',
                ftol: float = 1e-7,
                gtol: float = 1e-3,
@@ -67,7 +67,7 @@ class UCCVQE(VQE):
         self.ansatz = Ansatz
         self.nucleus = Ansatz.nucleus
         if len(init_param) == 0:
-            self.parameters = np.random.uniform(np.pi,np.pi,(len(self.ansatz.operator_pool)))
+            self.parameters = np.random.uniform(-np.pi,np.pi,(len(self.ansatz.operator_pool)))
         else:
             self.parameters = init_param
 
@@ -81,6 +81,7 @@ class UCCVQE(VQE):
         # print(" --------------------------------------------------------------------------")
 
         self.ansatz.fcalls = 0
+        self.ansatz.count_fcalls = False
         E0 = self.ansatz.energy(self.parameters)
 
         self.energy.append(E0)
@@ -92,6 +93,33 @@ class UCCVQE(VQE):
         except OptimizationConvergedException:
             pass
         self.ansatz.count_fcalls = False
+    
+    def sequential_run(self, final_run: bool = True) -> float:
+        """Runs the VQE algorithm"""
+
+        # print("\n\n\n")
+        # print(" --------------------------------------------------------------------------")
+        # print("                            Seq-UCC for ", self.nucleus.name)                 
+        # print(" --------------------------------------------------------------------------")
+
+        self.ansatz.fcalls = 0
+        self.ansatz.n_layers = 0
+        E0 = self.ansatz.sequential_energy(parameter=[0.0])
+        self.energy.append(E0)
+        self.rel_error.append(abs((E0 - self.ansatz.nucleus.eig_val[0])/self.ansatz.nucleus.eig_val[0]))
+        self.fcalls.append(self.ansatz.fcalls)
+        self.ansatz.count_fcalls = True
+
+        for n_layer in range(1,len(self.ansatz.operator_pool)+1):
+            print(self.ansatz.ansatz)
+            self.ansatz.n_layers = n_layer
+            parameter=np.zeros(1)
+            try:
+                result = minimize(self.ansatz.sequential_energy, list(parameter), method=self.method, callback=self.sequential_callback, bounds=[(-np.pi,np.pi)])
+            except OptimizationConvergedException:
+                pass
+            self.ansatz.count_fcalls = False
+
 
     def callback(self, params: list) -> None:
         """Callback function to store the energy and parameters at each iteration
@@ -108,6 +136,20 @@ class UCCVQE(VQE):
         if self.rel_error[-1] < self.test_threshold:
             self.success = True
             raise OptimizationConvergedException
+    
+    def sequential_callback(self, param: float) -> None:
+
+        self.ansatz.count_fcalls = False
+        E = self.ansatz.sequential_energy(param)
+        self.ansatz.count_fcalls = True
+        self.energy.append(E)
+        self.rel_error.append(abs((E - self.ansatz.nucleus.eig_val[0])/self.ansatz.nucleus.eig_val[0]))
+        self.fcalls.append(self.ansatz.fcalls)
+        self.parameters[self.ansatz.n_layers-1] = param
+        # print(f' Energy: {E}')
+        if self.rel_error[-1] < self.test_threshold:
+            self.success = True
+            raise OptimizationConvergedException
 
 
 class ADAPTVQE(VQE):
@@ -116,16 +158,13 @@ class ADAPTVQE(VQE):
                  Ansatz: ADAPTAnsatz,
                  method: str = 'SLSQP',
                  conv_criterion: str = 'Repeated op',
-                 test_threshold: float = 1e-6,
+                 test_threshold: float = 1e-4,
                  stop_at_threshold: bool = True,
-                 ftol: float = 1e-7,
-                 gtol: float = 1e-3,
-                 rhoend: float = 1e-5,
                  tol_method: str = 'Manual',
                  max_layers: int = 100,
                  return_data: bool = False) -> None:
         
-        super().__init__(test_threshold, method, ftol, gtol, rhoend, stop_at_threshold)
+        super().__init__(test_threshold = test_threshold, method = method, stop_at_threshold = stop_at_threshold)
         self.ansatz = Ansatz
         self.nucleus = Ansatz.nucleus
         self.parameters = []
@@ -172,7 +211,7 @@ class ADAPTVQE(VQE):
         fcalls_layers = [self.fcalls[-1]]
         self.state_layers.append(self.ansatz.ansatz)
 
-        while self.ansatz.minimum == False and len(self.ansatz.added_operators)<=self.max_layers:
+        while self.ansatz.minimum == False and len(self.ansatz.added_operators)<self.max_layers:
             self.ansatz.added_operators.append(next_operator)
             gradient_layers.append(next_gradient)
             self.parameter_layers.append([])
@@ -202,7 +241,7 @@ class ADAPTVQE(VQE):
                 next_operator,next_gradient = self.ansatz.choose_operator()
                 if self.conv_criterion == 'Repeated op' and next_operator == self.ansatz.added_operators[-1]:
                     self.ansatz.minimum = True
-                elif self.conv_criterion == 'Gradient' and opt_grad < 1e-6:
+                elif self.conv_criterion == 'Gradient' and next_gradient < 1e-7:
                     self.ansatz.minimum = True
                 else:
                     energy_layers.append(self.energy[-1])
@@ -226,13 +265,12 @@ class ADAPTVQE(VQE):
         
     
     def run_one_step(self, final_run: bool = True) -> tuple:
-        """Runs the ADAPT VQE algorithm one step at a time"""
+        """Runs the ADAPT VQE algorithm"""
 
-
-        print("\n\n\n")
-        print(" --------------------------------------------------------------------------")
-        print("                            ADAPT for ", self.nucleus.name)                 
-        print(" --------------------------------------------------------------------------")
+        # print("\n\n\n")
+        # print(" --------------------------------------------------------------------------")
+        # print("                            ADAPT for ", self.nucleus.name)                 
+        # print(" --------------------------------------------------------------------------")
 
         self.ansatz.fcalls = 0
         E0 = self.ansatz.energy(self.parameters)
@@ -241,22 +279,18 @@ class ADAPTVQE(VQE):
         self.fcalls.append(self.ansatz.fcalls)
         self.tot_operators+=self.fcalls[-1]*len(self.ansatz.added_operators)
         self.tot_operators_layers.append(self.tot_operators)
-        first_operator,first_gradient = self.ansatz.choose_operator()
-        gradient_layers = [first_gradient]
+        next_operator,next_gradient = self.ansatz.choose_operator()
+        gradient_layers = []
         opt_grad_layers = []
         energy_layers = [E0]
         rel_error_layers = [self.rel_error[-1]]
         fcalls_layers = [self.fcalls[-1]]
         self.state_layers.append(self.ansatz.ansatz)
-        self.ansatz.added_operators.append(first_operator)
 
-        while self.ansatz.minimum == False and len(self.ansatz.added_operators)<self.max_layers+1:
+        while self.ansatz.minimum == False and len(self.ansatz.added_operators)<self.max_layers:
+            self.ansatz.added_operators.append(next_operator)
+            gradient_layers.append(next_gradient)
             self.parameter_layers.append([])
-            if self.tol_method == 'Automatic':    
-                ftol = gradient_layers[-1]*1e-6
-                gtol = gradient_layers[-1]*1e-2
-                rhoend = gradient_layers[-1]*1e-2
-                self.update_options(ftol,gtol,rhoend)
             self.layer_fcalls.append(self.ansatz.fcalls)
             self.ansatz.count_fcalls = True
             try:
@@ -264,7 +298,8 @@ class ADAPTVQE(VQE):
                                   0.0,
                                   method=self.method,
                                   callback=self.callback_one_step,
-                                  options=self.options)
+                                  options=self.options,
+                                  bounds = [(-np.pi,np.pi)])
                 self.parameters.append(float(result.x))
                 if self.return_data:
                     if self.method!='COBYLA':
@@ -277,26 +312,22 @@ class ADAPTVQE(VQE):
                 next_operator,next_gradient = self.ansatz.choose_operator()
                 if self.conv_criterion == 'Repeated op' and next_operator == self.ansatz.added_operators[-1]:
                     self.ansatz.minimum = True
-                elif self.conv_criterion == 'Gradient' and opt_grad < 1e-6:
+                elif self.conv_criterion == 'Gradient' and next_gradient < 1e-7:
                     self.ansatz.minimum = True
                 else:
-                    if len(self.ansatz.added_operators)<self.max_layers:
-                        self.ansatz.added_operators.append(next_operator)
-                        gradient_layers.append(next_gradient)
-                        energy_layers.append(self.energy[-1])
-                        rel_error_layers.append(self.rel_error[-1])
-                        fcalls_layers.append(self.fcalls[-1])
-                    else:
-                        self.ansatz.minimum = True
+                    energy_layers.append(self.energy[-1])
+                    rel_error_layers.append(self.rel_error[-1])
+                    fcalls_layers.append(self.fcalls[-1])
             except OptimizationConvergedException:
                 if self.return_data:
                     opt_grad_layers.append('Manually stopped')
             self.state_layers.append(self.ansatz.ansatz)
             for a in range(len(self.parameters)):
                 self.parameter_layers[a].append(self.parameters[a])
-        
 
-        if final_run:
+        
+        if final_run and self.ansatz.minimum == False:
+            # print('Final run')
             try:
                 result = minimize(self.ansatz.energy,
                                   self.parameters,
@@ -312,17 +343,9 @@ class ADAPTVQE(VQE):
                     opt_grad_layers.append(opt_grad)
                 self.ansatz.count_fcalls = False
                 self.ansatz.ansatz = self.ansatz.build_ansatz(self.parameters)
-                next_operator,next_gradient = self.ansatz.choose_operator()
-                if self.conv_criterion == 'Repeated op' and next_operator == self.ansatz.added_operators[-1]:
-                    self.ansatz.minimum = True
-                elif self.conv_criterion == 'Gradient' and opt_grad < 1e-6:
-                    self.ansatz.minimum = True
-                else:
-                    self.ansatz.added_operators.append(next_operator)
-                    gradient_layers.append(next_gradient)
-                    energy_layers.append(self.energy[-1])
-                    rel_error_layers.append(self.rel_error[-1])
-                    fcalls_layers.append(self.fcalls[-1])
+                energy_layers.append(self.energy[-1])
+                rel_error_layers.append(self.rel_error[-1])
+                fcalls_layers.append(self.fcalls[-1])
             except OptimizationConvergedException:
                 if self.return_data:
                     opt_grad_layers.append('Manually stopped')
@@ -330,15 +353,17 @@ class ADAPTVQE(VQE):
             for a in range(len(self.parameters)):
                 self.parameter_layers[a].append(self.parameters[a])
 
-
         energy_layers.append(self.energy[-1])
         rel_error_layers.append(self.rel_error[-1])
         fcalls_layers.append(self.fcalls[-1])
         if self.conv_criterion == 'None' and self.ansatz.minimum == False:
             self.ansatz.minimum = True
             opt_grad_layers.append('Manually stopped')
+
+
         if self.return_data:
             return  gradient_layers, opt_grad_layers, energy_layers, rel_error_layers, fcalls_layers
+        
         
 
 
@@ -354,7 +379,7 @@ class ADAPTVQE(VQE):
         self.fcalls.append(self.ansatz.fcalls)
         self.tot_operators+=(self.fcalls[-1]-self.fcalls[-2])*len(self.ansatz.added_operators)
         self.tot_operators_layers.append(self.tot_operators)
-        print(f' Energy: {E}')
+        # print(f' Energy: {E}')
         if self.rel_error[-1] < self.test_threshold and self.stop_at_threshold:
             self.success = True
             self.ansatz.minimum = True
@@ -373,11 +398,12 @@ class ADAPTVQE(VQE):
         self.rel_error.append(abs((E - self.ansatz.nucleus.eig_val[0])/self.ansatz.nucleus.eig_val[0]))
         self.fcalls.append(self.ansatz.fcalls)
         self.tot_operators+=(self.fcalls[-1]-self.fcalls[-2])*len(self.ansatz.added_operators)
+        # print(f' Energy: {E}')
         self.tot_operators_layers.append(self.tot_operators)
         if self.rel_error[-1] < self.test_threshold and self.stop_at_threshold:
             self.success = True
             self.ansatz.minimum = True
-            self.parameters = param
+            self.parameters.append(param)
             raise OptimizationConvergedException
     
 

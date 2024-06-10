@@ -27,7 +27,7 @@ params = {'axes.linewidth': 1.4,
          "font.family": "serif",
          "font.serif": ["Palatino"]
          }
-plt.rcParams.update(params)
+# plt.rcParams.update(params)
 
 
 def UCC_vs_ADAPT(nuc: str, n_v: int, method: str = 'SLSQP', max_layers: int = 100) -> None:
@@ -63,34 +63,50 @@ def UCC_vs_ADAPT(nuc: str, n_v: int, method: str = 'SLSQP', max_layers: int = 10
 
     plt.show()
 
-def v_run(nucleus, ref_state,pool_format, method, test_threshold, stop_at_threshold):
-    calls = 0
+def v_run_UCC(nucleus, n_times, ref_state,pool_format, method, test_threshold, stop_at_threshold):
+    gates = 0
+    gates2 = 0
+    n_fails = 0
+    for n in range(n_times):    
+        fail = False
+        ansatz = UCCAnsatz(nucleus=nucleus,ref_state=ref_state,pool_format=pool_format)
+        init_params = np.random.uniform(low=-np.pi, high=np.pi, size=len(ansatz.operator_pool))
+        random.shuffle(ansatz.operator_pool)
+        vqe = UCCVQE(ansatz, init_param=init_params, method=method,
+                    test_threshold=test_threshold, stop_at_threshold=stop_at_threshold)
+        vqe.run()
+        if vqe.success:
+            gates += vqe.fcalls[-1]*len(vqe.ansatz.operator_pool)
+            gates2 += (vqe.fcalls[-1]*len(vqe.ansatz.operator_pool))**2
+        else:
+            n_fails += 1
+    if (n_times-n_fails)==0:
+        mean_gates = 0
+        std_gates = 0
+    else:
+        mean_gates = gates/(n_times-n_fails)
+        std_gates = np.sqrt(gates2/(n_times-n_fails) - mean_gates**2)
+    return mean_gates, std_gates, n_fails
+
+def vrun_1time_UCC(nucleus, ref_state, pool_format, method, test_threshold, stop_at_threshold):
     fail = False
     ansatz = UCCAnsatz(nucleus=nucleus,ref_state=ref_state,pool_format=pool_format)
     init_params = np.random.uniform(low=-np.pi, high=np.pi, size=len(ansatz.operator_pool))
     random.shuffle(ansatz.operator_pool)
     vqe = UCCVQE(ansatz, init_param=init_params, method=method,
-                 test_threshold=test_threshold, stop_at_threshold=stop_at_threshold)
+                test_threshold=test_threshold, stop_at_threshold=stop_at_threshold)
+    start = perf_counter()
     vqe.run()
-    if vqe.success:
-        calls += vqe.fcalls[-1]
-        fail = False
-    else:
-        fail = True
-    return calls, fail
-
-
-
+    end = perf_counter()
+    print(f'Elapsed time: {end-start} seconds')
+    return vqe.fcalls[-1]*len(vqe.ansatz.operator_pool), vqe.success
 
 
 def UCC_v_performance(nuc: str,
                       method: str,
                       n_vecs: int,
                       n_times: int = 1000,
-                      ftol: float = 1e-7,
-                      gtol: float = 1e-3,
-                      rhoend: float = 1e-5,
-                      test_threshold: float = 1e-6,
+                      test_threshold: float = 1e-4,
                       stop_at_threshold: bool = True,
                       pool_format: str = 'Only acting') -> None:
     nucleus = Nucleus(nuc, 1)
@@ -103,83 +119,287 @@ def UCC_v_performance(nuc: str,
     output_folder = os.path.join(f'outputs/{nuc}/v_performance/UCC_{pool_format}')
 
 
-    file = open(os.path.join(output_folder, f'{method}_performance_randomt0_ntimes={n_times}_pool={pool_format}.dat'), 'w')
-    for n_v in range(n_vecs):
-        print(f'{n_v}')
-
-        calls = 0
-        calls2 = 0
-        n_fails = 0
+    file = open(os.path.join(output_folder, f'{method}_ntimes={n_times}.dat'), 'w')
+        
+    with concurrent.futures.ProcessPoolExecutor() as executor:
         futures = []
+        for n_v in range(n_vecs):
+            future = executor.submit(v_run_UCC, nucleus, n_times, vecs[n_v], pool_format, method, test_threshold, stop_at_threshold)
+            futures.append(future)
+        rand_state = np.random.uniform(low=-1, high=1, size=nucleus.d_H)
+        rand_state = rand_state/np.linalg.norm(rand_state)
+        future_random = executor.submit(v_run_UCC, nucleus, n_times, rand_state, pool_format, method, test_threshold, stop_at_threshold)
+        for n_v,future in tqdm(enumerate(futures)):
+            mean_gates, std_gates, n_fails = future.result()
+            file.write(f'v{n_v}'+'\t'+f'{mean_gates}'+'\t'+f'{std_gates}'+'\t'+f'{n_fails}'+'\n')
+        mean_gates, std_gates, n_fails = future_random.result()
+        file.write(f'random'+'\t'+f'{mean_gates}'+'\t'+f'{std_gates}'+'\t'+f'{n_fails}'+'\n')
+
+    file.close()
+
+def UCC_v_performance_2(nuc: str,
+                      method: str,
+                      n_vecs: int,
+                      n_times: int = 1000,
+                      test_threshold: float = 1e-4,
+                      stop_at_threshold: bool = True,
+                      pool_format: str = 'Only acting') -> None:
+    nucleus = Nucleus(nuc, 1)
+    vecs = np.eye(nucleus.d_H)
+
+    try:
+        os.makedirs(f'outputs/{nuc}/v_performance/UCC_{pool_format}')
+    except OSError:
+        pass
+    output_folder = os.path.join(f'outputs/{nuc}/v_performance/UCC_{pool_format}')
+
+
+    file = open(os.path.join(output_folder, f'{method}_ntimes={n_times}.dat'), 'w')
+
+    times_list = [50 for _ in range (n_times//50)]
+    if n_times%50 != 0:
+        times_list.append(n_times%50)
+
+    for n_v in tqdm(range(n_vecs)):
+        gates = 0
+        gates2 = 0
+        n_fails = 0
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            for _ in range(n_times):
-                future = executor.submit(v_run, nucleus, vecs[n_v], pool_format, method, test_threshold, stop_at_threshold)
+            for N in times_list:
+                futures = []
+                for _ in range(N):
+                    future = executor.submit(vrun_1time_UCC, nucleus, vecs[n_v], pool_format, method, test_threshold, stop_at_threshold)
+                    futures.append(future)
+                for future in futures:
+                    n_gates, success = future.result()
+                    if success:
+                        gates += n_gates
+                        gates2 += n_gates**2
+                    else:
+                        n_fails += 1
+        if (n_times-n_fails)==0:
+            mean_gates = 0
+            std_gates = 0
+        else:
+            mean_gates = gates/(n_times-n_fails)
+            std_gates = np.sqrt(gates2/(n_times-n_fails) - mean_gates**2)
+        file.write(f'v{n_v}'+'\t'+f'{mean_gates}'+'\t'+f'{std_gates}'+'\t'+f'{n_fails}'+'\n')
+    
+    rand_state = np.random.uniform(low=-1, high=1, size=nucleus.d_H)
+    rand_state = rand_state/np.linalg.norm(rand_state)
+    gates = 0
+    gates2 = 0
+    n_fails = 0
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        for N in times_list:
+            futures = []
+            for _ in range(N):
+                future = executor.submit(vrun_1time_UCC, nucleus, rand_state, pool_format, method, test_threshold, stop_at_threshold)
                 futures.append(future)
-            for future in tqdm(concurrent.futures.as_completed(futures)):
-                callsi, fail = future.result()
-                if fail==False:
-                    calls += callsi
-                    calls2 += callsi**2
+            for future in futures:
+                n_gates, success = future.result()
+                if success:
+                    gates += n_gates
+                    gates2 += n_gates**2
                 else:
                     n_fails += 1
-        if (n_times-n_fails)==0:
-            mean_calls = 0
-            std_calls = 0
-        else:
-            mean_calls = calls/(n_times-n_fails)
-            std_calls = np.sqrt(calls2/(n_times-n_fails) - mean_calls**2)
-        file.write(f'v{n_v}'+'\t'+f'{mean_calls}'+'\t'+f'{std_calls}'+'\t'+f'{n_fails}'+'\n')
+    if (n_times-n_fails)==0:
+        mean_gates = 0
+        std_gates = 0
+    else:
+        mean_gates = gates/(n_times-n_fails)
+        std_gates = np.sqrt(gates2/(n_times-n_fails) - mean_gates**2)
+    file.write(f'random'+'\t'+f'{mean_gates}'+'\t'+f'{std_gates}'+'\t'+f'{n_fails}'+'\n')
+
+    file.close()
 
 
-    print('Random')
-    calls = 0
-    calls2 = 0
-    n_fails = 0
+def v_run_ADAPT(nucleus, ref_state,pool_format, method, test_threshold, stop_at_threshold, conv_criterion):
+    gates = 0
+    gates2 = 0 
+    fail = False
+    ansatz = ADAPTAnsatz(nucleus=nucleus,ref_state=ref_state,pool_format=pool_format)
+    E0 = ansatz.E0
+    overlapp = (ref_state.conj().T @ nucleus.eig_vec[:,0])**2
+    vqe = ADAPTVQE(ansatz, method=method, test_threshold=test_threshold, stop_at_threshold=stop_at_threshold, conv_criterion=conv_criterion)
+    vqe.run()
+    return vqe.tot_operators, len(vqe.ansatz.added_operators), vqe.success, E0, overlapp
+
+
+def ADAPT_v_performance(nuc: str,
+                      method: str,
+                      n_vecs: int,
+                      conv_criterion: str = 'Repeated op',
+                      test_threshold: float = 1e-4,
+                      stop_at_threshold: bool = True,
+                      pool_format: str = 'Only acting') -> None:
+    nucleus = Nucleus(nuc, 1)
+    vecs = np.eye(nucleus.d_H)
+
+    try:
+        os.makedirs(f'outputs/{nuc}/v_performance/ADAPT')
+    except OSError:
+        pass
+    output_folder = os.path.join(f'outputs/{nuc}/v_performance/ADAPT')
+
+
+    file = open(os.path.join(output_folder, f'{method}.dat'), 'w')
+    
     futures = []
+    energies = []
+    overlapps = []
+    gatess = []
     with concurrent.futures.ProcessPoolExecutor() as executor:
-        for _ in range(n_times):
-            ref_state = np.random.rand(nucleus.d_H)
-            ref_state = ref_state/np.linalg.norm(ref_state)
-            future = executor.submit(v_run, nucleus, ref_state, pool_format, method, test_threshold, stop_at_threshold)
+        futures = []
+        for n_v in range(nucleus.d_H):
+            future = executor.submit(v_run_ADAPT, nucleus, vecs[n_v],pool_format, method, test_threshold, stop_at_threshold, conv_criterion)
             futures.append(future)
-        for future in tqdm(concurrent.futures.as_completed(futures)):
-            callsi, fail = future.result()
-            if fail==False:
-                calls += callsi
-                calls2 += callsi**2
+        for n_v,future in tqdm(enumerate(futures)):
+            gates, layers, success, E0, overlapp = future.result()
+            if success:
+                file.write(f'v{n_v}'+'\t'+f'{gates}'+'\t'+f'{layers}'+'\t'+'SUCCESS'+'\t'+f'E0={E0}'+'\t'+f'overlapp={overlapp}'+'\n')
+                energies.append(E0)
+                overlapps.append(overlapp)
+                gatess.append(gates)
+            else:
+                file.write(f'v{n_v}'+'\t'+f'{gates}'+'\t'+f'{layers}'+'\t'+'FAIL'+'\t'+f'E0={E0}'+'\t'+f'overlapp={overlapp}'+'\n')
+        file.close()
+
+
+        print('Random state')
+        gates = 0
+        gates2 = 0
+        layers = 0
+        layers2 = 0
+        n_fails = 0
+        futures = []
+        for N in range(50):
+            rand_state = np.random.uniform(low=-1, high=1, size=nucleus.d_H)
+            rand_state = rand_state/np.linalg.norm(rand_state)
+            future_random = executor.submit(v_run_ADAPT, nucleus, rand_state,pool_format, method, test_threshold, stop_at_threshold, conv_criterion)
+            futures.append(future_random)
+        for future in tqdm(futures):
+            n_gates, n_layers, success, E0, overlapp = future.result()
+            if success:
+                gates += n_gates
+                gates2 += n_gates**2
+                layers += n_layers
+                layers2 += n_layers**2
+                energies.append(E0)
+                overlapps.append(overlapp)
+                gatess.append(n_gates)
             else:
                 n_fails += 1
-    if (n_times-n_fails)==0:
-        mean_calls = 0
-        std_calls = 0
-    else:
-        mean_calls = calls/(n_times-n_fails)
-        std_calls = np.sqrt(calls2/(n_times-n_fails) - mean_calls**2)
-    file.write(f'random'+'\t'+f'{mean_calls}'+'\t'+f'{std_calls}'+'\t'+f'{n_fails}'+'\n')
+        # if (50-n_fails)==0:
+        #     mean_gates = 0
+        #     std_gates = 0
+        #     mean_layers = 0
+        # else:
+        #     mean_gates = gates/(50-n_fails)
+        #     std_gates = np.sqrt(gates2/(50-n_fails) - mean_gates**2)
+        #     mean_layers = layers/(50-n_fails)
+        #     std_layers = np.sqrt(layers2/(50-n_fails) - mean_layers**2)
+        fig, ax = plt.subplots(1,2, figsize=(10,5))
+
+        ax[0].plot(energies[nucleus.d_H:], gatess[nucleus.d_H:], 'p', color = 'red', label='Random states')
+        ax[1].plot(overlapps[nucleus.d_H:], gatess[nucleus.d_H:], 'p', color = 'red', label='Random states')
+        ax[0].plot(energies[:nucleus.d_H], gatess[:nucleus.d_H], 'o', color = 'blue', label='Basis states')
+        ax[1].plot(overlapps[:nucleus.d_H], gatess[:nucleus.d_H], 'o', color = 'blue', label='Basis states')
+        ax[0].set_xlabel('E0')
+        ax[0].set_ylabel('Gates')
+        ax[0].legend()
+        ax[1].set_xlabel('Overlapp')
+        ax[1].set_ylabel('Gates')
+        fig.savefig(os.path.join(output_folder, 'random_state.pdf'))
+
+
+def v_run_seq_ADAPT(nucleus, ref_state,pool_format, method, test_threshold, stop_at_threshold, conv_criterion, max_layers):
+    gates = 0
+    gates2 = 0 
+    fail = False
+    ansatz = ADAPTAnsatz(nucleus=nucleus,ref_state=ref_state,pool_format=pool_format)
+    vqe = ADAPTVQE(ansatz,
+                   method=method,
+                   test_threshold=test_threshold,
+                   stop_at_threshold=stop_at_threshold,
+                   conv_criterion=conv_criterion,
+                   max_layers=max_layers)
+    
+    vqe.run_one_step(final_run=False)
+    return vqe.tot_operators, len(vqe.ansatz.added_operators), vqe.success,
+
+
+def seq_ADAPT_v_performance(nuc: str,
+                      method: str,
+                      n_vecs: int,
+                      conv_criterion: str = 'Repeated op',
+                      test_threshold: float = 1e-4,
+                      stop_at_threshold: bool = True,
+                      pool_format: str = 'Reduced',
+                      max_layers: int = 500) -> None:
+    nucleus = Nucleus(nuc, 1)
+    vecs = np.eye(nucleus.d_H)
+
+    try:
+        os.makedirs(f'outputs/{nuc}/v_performance/Seq-ADAPT')
+    except OSError:
+        pass
+    output_folder = os.path.join(f'outputs/{nuc}/v_performance/Seq-ADAPT')
+
+
+    file = open(os.path.join(output_folder, f'{method}.dat'), 'w')
+        
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        futures = []
+        for n_v in range(nucleus.d_H):
+            print('n_v')
+            future = executor.submit(v_run_seq_ADAPT, nucleus, vecs[n_v],pool_format, method, test_threshold, stop_at_threshold, conv_criterion, max_layers)
+            futures.append(future)
+        for n_v,future in tqdm(enumerate(futures)):
+            gates, layers, success, E0, overlapp = future.result()
+            if success:
+                file.write(f'v{n_v}'+'\t'+f'{gates}'+'\t'+f'{layers}'+'\t'+'SUCCESS'+f'E0={E0}'+'\t'+f'overlapp={overlapp}'+'\n')
+            else:
+                file.write(f'v{n_v}'+'\t'+f'{gates}'+'\t'+f'{layers}'+'\t'+'FAIL'+f'E0={E0}'+'\t'+f'overlapp={overlapp}'+'\n')
+        
+        print('Random state')
+        gates = 0
+        gates2 = 0
+        layers = 0
+        layers2 = 0
+        n_fails = 0
+        futures = []
+        for N in range(50):
+            rand_state = np.random.uniform(low=-1, high=1, size=nucleus.d_H)
+            rand_state = rand_state/np.linalg.norm(rand_state)
+            future_random = executor.submit(v_run_seq_ADAPT, nucleus, rand_state,pool_format, method, test_threshold, stop_at_threshold, conv_criterion, max_layers)
+            futures.append(future_random)
+        for future in tqdm(futures):
+            n_gates, n_layers, success = future.result()
+            if success:
+                gates += n_gates
+                gates2 += n_gates**2
+                layers += n_layers
+                layers2 += n_layers**2
+            else:
+                n_fails += 1
+        if (50-n_fails)==0:
+            mean_gates = 0
+            std_gates = 0
+            mean_layers = 0
+        else:
+            mean_gates = gates/(50-n_fails)
+            std_gates = np.sqrt(gates2/(50-n_fails) - mean_gates**2)
+            mean_layers = layers/(50-n_fails)
+            std_layers = np.sqrt(layers2/(50-n_fails) - mean_layers**2)
+
+        file.write(f'random'+'\t'+f'{mean_gates}'+'\t'+f'{std_gates}'+'\t'+f'{mean_layers}'+'\t'+f'{std_layers}'+'\t'+f'{n_fails}'+'\n')
 
     file.close()
 
 
 
 
+
 if __name__ == '__main__':
-    # time1 = perf_counter()
-    # Li6 = Nucleus('Li6', 1)
-    # ref_state = np.eye(Li6.d_H)[0]
-    # UCC_ansatz = UCCAnsatz(Li6, ref_state = ref_state, pool_format = 'Only acting')
-    # UCC_vqe = UCCVQE(UCC_ansatz, method = 'SLSQP', test_threshold=1e-6, stop_at_threshold=True)
-    # UCC_vqe.run()
-    # print(UCC_vqe.fcalls[-1])
-    # time2 = perf_counter()
-    # print(f'Elapsed time: {time2-time1}')
-
-    # time1 = perf_counter()
-    # He8 = Nucleus('He8', 1)
-    # ref_state = np.eye(He8.d_H)[0]
-    # ADAPT_ansatz = ADAPTAnsatz(He8, ref_state = ref_state, pool_format = 'Reduced')
-    # ADAPT_vqe = ADAPTVQE(ADAPT_ansatz, method = 'L-BFGS-B', test_threshold=1e-4, stop_at_threshold=True, max_layers=60)
-    # ADAPT_vqe.run_one_step()
-    # time2 = perf_counter()
-    # print(f'Elapsed time: {time2-time1}')
-
-    UCC_v_performance(nuc='He8', method='SLSQP', n_vecs=5, n_times=50, pool_format='Reduced', test_threshold=1e-4, stop_at_threshold=True)
+    ADAPT_v_performance('Be8', method = 'L-BFGS-B', n_vecs=10, conv_criterion='Repeated op', test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced')
