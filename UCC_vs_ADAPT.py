@@ -160,7 +160,8 @@ def UCC_v_performance_2(nuc: str,
     if n_times%50 != 0:
         times_list.append(n_times%50)
 
-    for n_v in tqdm(range(n_vecs)):
+    vecs_list = [0,1,2,3,4,5,6,7,8,18,19,21,22,23,27]
+    for n_v in tqdm(vecs_list):
         gates = 0
         gates2 = 0
         n_fails = 0
@@ -220,10 +221,10 @@ def v_run_ADAPT(nucleus, ref_state,pool_format, method, test_threshold, stop_at_
     fail = False
     ansatz = ADAPTAnsatz(nucleus=nucleus,ref_state=ref_state,pool_format=pool_format)
     E0 = ansatz.E0
-    overlapp = (ref_state.conj().T @ nucleus.eig_vec[:,0])**2
+    overlap = (ref_state.conj().T @ nucleus.eig_vec[:,0])**2
     vqe = ADAPTVQE(ansatz, method=method, test_threshold=test_threshold, stop_at_threshold=stop_at_threshold, conv_criterion=conv_criterion)
     vqe.run()
-    return vqe.tot_operators, len(vqe.ansatz.added_operators), vqe.success, E0, overlapp
+    return vqe.tot_operators, vqe.fcalls[-1], len(vqe.ansatz.added_operators), vqe.success, E0, overlap
 
 
 def ADAPT_v_performance(nuc: str,
@@ -232,9 +233,10 @@ def ADAPT_v_performance(nuc: str,
                       conv_criterion: str = 'Repeated op',
                       test_threshold: float = 1e-4,
                       stop_at_threshold: bool = True,
-                      pool_format: str = 'Only acting') -> None:
+                      pool_format: str = 'Only acting',
+                      n_times: int = 50) -> None:
     nucleus = Nucleus(nuc, 1)
-    vecs = np.eye(nucleus.d_H)
+    basis = np.eye(nucleus.d_H)
 
     try:
         os.makedirs(f'outputs/{nuc}/v_performance/ADAPT')
@@ -242,75 +244,63 @@ def ADAPT_v_performance(nuc: str,
         pass
     output_folder = os.path.join(f'outputs/{nuc}/v_performance/ADAPT')
 
-
-    file = open(os.path.join(output_folder, f'{method}.dat'), 'w')
     
-    futures = []
+    vecs = []
     energies = []
-    overlapps = []
-    gatess = []
+    overlaps = []
+    gates = []
+    layers = []
+    fcalls = []
     with concurrent.futures.ProcessPoolExecutor() as executor:
         futures = []
         for n_v in range(nucleus.d_H):
-            future = executor.submit(v_run_ADAPT, nucleus, vecs[n_v],pool_format, method, test_threshold, stop_at_threshold, conv_criterion)
+            future = executor.submit(v_run_ADAPT, nucleus, basis[n_v],pool_format, method, test_threshold, stop_at_threshold, conv_criterion)
             futures.append(future)
         for n_v,future in tqdm(enumerate(futures)):
-            gates, layers, success, E0, overlapp = future.result()
+            n_gates, n_fcalls, n_layers, success, E0, overlap = future.result()
             if success:
-                file.write(f'v{n_v}'+'\t'+f'{gates}'+'\t'+f'{layers}'+'\t'+'SUCCESS'+'\t'+f'E0={E0}'+'\t'+f'overlapp={overlapp}'+'\n')
+                vecs.append(f'v{n_v}')
                 energies.append(E0)
-                overlapps.append(overlapp)
-                gatess.append(gates)
-            else:
-                file.write(f'v{n_v}'+'\t'+f'{gates}'+'\t'+f'{layers}'+'\t'+'FAIL'+'\t'+f'E0={E0}'+'\t'+f'overlapp={overlapp}'+'\n')
-        file.close()
+                overlaps.append(overlap)
+                gates.append(n_gates)
+                fcalls.append(n_fcalls)
+                layers.append(n_layers)
+        data = {'v': vecs, 'Gates': gates, 'Layers': layers, 'Fcalls': fcalls, 'E0': energies, 'Overlap': overlaps}
+        df = pd.DataFrame(data)
+        df.to_csv(os.path.join(output_folder, f'{method}_basis.csv'), sep='\t', index=False)
 
 
         print('Random state')
-        gates = 0
-        gates2 = 0
-        layers = 0
-        layers2 = 0
-        n_fails = 0
-        futures = []
-        for N in range(50):
-            rand_state = np.random.uniform(low=-1, high=1, size=nucleus.d_H)
-            rand_state = rand_state/np.linalg.norm(rand_state)
-            future_random = executor.submit(v_run_ADAPT, nucleus, rand_state,pool_format, method, test_threshold, stop_at_threshold, conv_criterion)
-            futures.append(future_random)
-        for future in tqdm(futures):
-            n_gates, n_layers, success, E0, overlapp = future.result()
-            if success:
-                gates += n_gates
-                gates2 += n_gates**2
-                layers += n_layers
-                layers2 += n_layers**2
-                energies.append(E0)
-                overlapps.append(overlapp)
-                gatess.append(n_gates)
-            else:
-                n_fails += 1
-        # if (50-n_fails)==0:
-        #     mean_gates = 0
-        #     std_gates = 0
-        #     mean_layers = 0
-        # else:
-        #     mean_gates = gates/(50-n_fails)
-        #     std_gates = np.sqrt(gates2/(50-n_fails) - mean_gates**2)
-        #     mean_layers = layers/(50-n_fails)
-        #     std_layers = np.sqrt(layers2/(50-n_fails) - mean_layers**2)
-        fig, ax = plt.subplots(1,2, figsize=(10,5))
+        times_list = [50 for _ in range (n_times//50)]
+        if n_times%50 != 0:
+            times_list.append(n_times%50)
 
-        ax[0].plot(energies[nucleus.d_H:], gatess[nucleus.d_H:], 'p', color = 'red', label='Random states')
-        ax[1].plot(overlapps[nucleus.d_H:], gatess[nucleus.d_H:], 'p', color = 'red', label='Random states')
-        ax[0].plot(energies[:nucleus.d_H], gatess[:nucleus.d_H], 'o', color = 'blue', label='Basis states')
-        ax[1].plot(overlapps[:nucleus.d_H], gatess[:nucleus.d_H], 'o', color = 'blue', label='Basis states')
-        ax[0].set_xlabel('E0')
-        ax[0].set_ylabel('Gates')
-        ax[0].legend()
-        ax[1].set_xlabel('Overlapp')
-        ax[1].set_ylabel('Gates')
-        fig.savefig(os.path.join(output_folder, 'random_state.pdf'))
+        vecs = []
+        energies = []
+        overlaps = []
+        gates = []
+        layers = []
+        fcalls = []
+        for N in times_list:
+            futures = []
+            for _ in range(N):
+                rand_state = np.random.uniform(low=-1, high=1, size=nucleus.d_H)
+                rand_state = rand_state/np.linalg.norm(rand_state)
+                future_random = executor.submit(v_run_ADAPT, nucleus, rand_state,pool_format, method, test_threshold, stop_at_threshold, conv_criterion)
+                futures.append(future_random)
+            for n_v,future in tqdm(enumerate(futures)):
+                n_gates, n_fcalls, n_layers, success, E0, overlap = future.result()
+                if success:
+                    energies.append(E0)
+                    overlaps.append(overlap)
+                    gates.append(n_gates)
+                    fcalls.append(n_fcalls)
+                    layers.append(n_layers)
+            data = {'Gates': gates, 'Layers': layers, 'Fcalls': fcalls, 'E0': energies, 'Overlap': overlaps}
+            df = pd.DataFrame(data)
+            df.to_csv(os.path.join(output_folder, f'{method}_random.csv'), sep='\t', index=False)
+                
+
 
 
 def v_run_seq_ADAPT(nucleus, ref_state,pool_format, method, test_threshold, stop_at_threshold, conv_criterion, max_layers):
@@ -356,11 +346,11 @@ def seq_ADAPT_v_performance(nuc: str,
             future = executor.submit(v_run_seq_ADAPT, nucleus, vecs[n_v],pool_format, method, test_threshold, stop_at_threshold, conv_criterion, max_layers)
             futures.append(future)
         for n_v,future in tqdm(enumerate(futures)):
-            gates, layers, success, E0, overlapp = future.result()
+            gates, layers, success, E0, overlap = future.result()
             if success:
-                file.write(f'v{n_v}'+'\t'+f'{gates}'+'\t'+f'{layers}'+'\t'+'SUCCESS'+f'E0={E0}'+'\t'+f'overlapp={overlapp}'+'\n')
+                file.write(f'v{n_v}'+'\t'+f'{gates}'+'\t'+f'{layers}'+'\t'+'SUCCESS'+f'E0={E0}'+'\t'+f'overlap={overlap}'+'\n')
             else:
-                file.write(f'v{n_v}'+'\t'+f'{gates}'+'\t'+f'{layers}'+'\t'+'FAIL'+f'E0={E0}'+'\t'+f'overlapp={overlapp}'+'\n')
+                file.write(f'v{n_v}'+'\t'+f'{gates}'+'\t'+f'{layers}'+'\t'+'FAIL'+f'E0={E0}'+'\t'+f'overlap={overlap}'+'\n')
         
         print('Random state')
         gates = 0
@@ -402,4 +392,4 @@ def seq_ADAPT_v_performance(nuc: str,
 
 
 if __name__ == '__main__':
-    ADAPT_v_performance('Be8', method = 'L-BFGS-B', n_vecs=10, conv_criterion='Repeated op', test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced')
+   ADAPT_v_performance('B8', 'L-BFGS-B',10, conv_criterion='Repeated op', test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced', n_times=100)
