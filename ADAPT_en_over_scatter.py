@@ -41,18 +41,18 @@ overlap_random = random_df['Overlap']
 gates_random = random_df['Gates']
 
 ### FIGURE 1 ###
-fig, ax = plt.subplots(1,2, figsize=(12,5))
-ax[0].scatter(E_basis, gates_basis, marker = 'o', color = 'tab:blue', label='Basis states')
-ax[0].scatter(E_random, gates_random, marker = 'o', color = 'tab:red', label='Random states')
+fig, ax = plt.subplots(1,2, figsize=(13,6), sharey=True)
+ax[0].scatter(E_basis, gates_basis, marker = 'p', color = 'tab:blue', label='Basis states')
+ax[0].scatter(E_random, gates_random, marker = 's', color = 'tab:red', label='Random states')
 ax[0].set_xlabel('Ref. state energy')
 ax[0].set_ylabel('Circuit depth')
 
-ax[0].legend()
 
-ax[1].scatter(overlap_basis, gates_basis, marker = 'o', color = 'tab:blue', label='Basis states')
-ax[1].scatter(overlap_random, gates_random, marker = 'o', color = 'tab:red', label='Random states')
+ax[1].scatter(overlap_basis, gates_basis, marker = 'p', color = 'tab:blue', label='Basis states')
+ax[1].scatter(overlap_random, gates_random, marker = 's', color = 'tab:red', label='Random states')
 ax[1].set_xlabel('Ref. state overlap')
-ax[1].set_ylabel('Circuit depth')
+ax[1].legend()
+fig.subplots_adjust(wspace=0.05)
 fig.suptitle(f'Reference state performance according to energy and overlap, {nucleus.name}', fontsize=15)
 fig.savefig(f'./figures/{nucleus.name}/ADAPT_energy_overlap.pdf', bbox_inches='tight')
 
@@ -61,7 +61,8 @@ plt.close()
 
 
 ### FIGURE 2 ###
-plt.scatter(E_random, gates_random, c=overlap_random, cmap='viridis', marker='o', label='Random states')
+plt.scatter(E_basis, gates_basis, c=overlap_basis, cmap='viridis', marker='p', label='Basis states')
+plt.scatter(E_random, gates_random, c=overlap_random, cmap='viridis', marker='s', label='Random states')
 cbar = plt.colorbar()
 cbar.set_label('Ref. state overlap')
 plt.xlabel('Ref. state energy')
