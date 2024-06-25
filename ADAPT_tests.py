@@ -596,37 +596,42 @@ def one_step_test(nuc: str,
     print(f'{nuc} done!')
 
 if __name__ == '__main__':
-    nucs_layers = {'B8': [30,40,60],
-                   'B10': [80,90,120],
-                   'Be6': [4,5,6],
-                   'Be8': [50,70,90],
-                   'Be10': [50,70,90],
-                   'C10': [50,70,90],
-                   'He8': [4,5,6],
-                   'Li6': [9,10,15,20],
-                   'Li8': [30,40,60],
-                   'Li10': [9,10,15,20],
-                   'N10': [9,10,15,20]}
-    
-    # nucs = ['B8',
-    #         'B10',
-    #         'Be6',
-    #         'Be8',
-    #         'Be10',
-    #         'C10',
-    #         'He8',
-    #         'Li6',
-    #         'Li8',
-    #         'Li10',
-    #         'N10']
+    params = {'axes.linewidth': 1.4,
+        'axes.labelsize': 16,
+        'axes.titlesize': 18,
+        'axes.linewidth': 1.5,
+        'lines.markeredgecolor': "black",
+        'lines.linewidth': 1.5,
+        'xtick.labelsize': 12,
+        'ytick.labelsize': 12,
+        "text.usetex": True,
+        "font.family": "serif",
+        "font.serif": ["Palatino"]
+        }
+    plt.rcParams.update(params)
 
-    nucs = ['Li8',
-            'B8']
-    
-    futures = []
-    
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        for nuc in nucs:
-            futures.append(executor.submit(one_step_test, nuc, method='L-BFGS-B', test_threshold=1e-4, stop_at_threshold=True, tol_method='Manual', conv_criterion='Repeated', pool_format='Reduced', max_layers=300, one_step_layers=nucs_layers[nuc]))
-        for future in futures:
-            future.result()
+    Li6 = Nucleus('Li6', 1)
+    vecs = np.eye(Li6.d_H)
+
+    ansatz_0 = ADAPTAnsatz(Li6, vecs[0], pool_format='Reduced')
+    ansatz_1 = ADAPTAnsatz(Li6, vecs[1], pool_format='Reduced')
+
+    VQE_0 = ADAPTVQE(ansatz_0, method='L-BFGS-B', conv_criterion='Repeated', max_layers=15)
+    VQE_1 = ADAPTVQE(ansatz_1, method='L-BFGS-B', conv_criterion='Repeated', max_layers=15)
+
+    VQE_0.run()
+    VQE_1.run()
+
+    plt.plot(VQE_0.fcalls, VQE_0.rel_error, label=r'$|\frac{1}{2}-\frac{1}{2}\frac{1}{2}\frac{1}{2}\rangle$')
+    plt.plot(VQE_1.fcalls, VQE_1.rel_error, label=r'$|\frac{1}{2}-\frac{1}{2}\frac{3}{2}\frac{1}{2}\rangle$')
+
+    plt.hlines(abs((Li6.eig_val[0]-Li6.eig_val[1])/Li6.eig_val[0]),0,1000, color='grey', linestyle='--', alpha=0.5)
+    plt.text(450, abs((Li6.eig_val[0]-Li6.eig_val[1])/Li6.eig_val[0]), '1st excited state energy', verticalalignment='bottom', horizontalalignment='right')
+
+    plt.yscale('log')
+    plt.xlim(0, 500)
+    plt.xlabel('Function calls')
+    plt.ylabel('Relative error')
+    plt.legend(loc=(0.25,0.25), fontsize='large')
+
+    plt.savefig('figures/Li6/ADAPT_test_2basis.pdf', bbox_inches='tight')

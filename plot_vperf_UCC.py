@@ -24,7 +24,7 @@ d_H = Li6.d_H
 runs=100
 
 
-outputs_folder=('./outputs/v_performance/UCC')
+outputs_folder=(f'./outputs/{Li6.name}/v_performance/UCC_Reduced')
 files=os.listdir(outputs_folder)
 files=[f for f in files if f'ntimes={runs}' in f]
 
@@ -52,7 +52,8 @@ v=[r'$|\frac{1}{2}, -\frac{1}{2},\frac{1}{2}, \frac{1}{2}\rangle$',
     r'$|\frac{3}{2}, -\frac{1}{2},\frac{3}{2}, \frac{1}{2}\rangle$',
     r'$|\frac{3}{2}, \frac{1}{2},\frac{1}{2}, -\frac{1}{2}\rangle$',
     r'$|\frac{3}{2}, \frac{1}{2},\frac{3}{2}, -\frac{1}{2}\rangle$',
-    r'$|\frac{3}{2}, \frac{3}{2},\frac{3}{2}, -\frac{3}{2}\rangle$']
+    r'$|\frac{3}{2}, \frac{3}{2},\frac{3}{2}, -\frac{3}{2}\rangle$',
+    'Randomized states']
 
 for i,f in enumerate(files):
     file_path=os.path.join(outputs_folder,f)
@@ -66,6 +67,7 @@ for i,f in enumerate(files):
         mean.append(float(d[1]))
         std.append(float(d[2]))
     x=np.arange(len(v))+dodge[i]
+    print(len(x),len(mean))
     ax2.errorbar(x,mean,yerr=std,marker=markers[i],linestyle='none',label=f.split('_')[0],zorder=5)
 
 

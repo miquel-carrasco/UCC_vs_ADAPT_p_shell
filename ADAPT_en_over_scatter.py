@@ -5,21 +5,21 @@ import os
 import numpy.linalg as la
 from VQE.Nucleus import Nucleus
 
-# params = {'axes.linewidth': 1.4,
-#          'axes.labelsize': 16,
-#          'axes.titlesize': 18,
-#          'axes.linewidth': 1.5,
-#          'lines.markeredgecolor': "black",
-#      	'lines.linewidth': 1.5,
-#          'xtick.labelsize': 11,
-#          'ytick.labelsize': 14,
-#          "text.usetex": True,
-#          "font.family": "serif",
-#          "font.serif": ["Palatino"]
-#          }
-# plt.rcParams.update(params)
+params = {'axes.linewidth': 1.4,
+         'axes.labelsize': 13,
+         'axes.titlesize': 15,
+         'axes.linewidth': 1.5,
+         'lines.markeredgecolor': "black",
+     	'lines.linewidth': 1.5,
+         'xtick.labelsize': 11,
+         'ytick.labelsize': 11,
+         "text.usetex": True,
+         "font.family": "serif",
+         "font.serif": ["Palatino"]
+         }
+plt.rcParams.update(params)
 
-nucleus = Nucleus('Be8',1)
+nucleus = Nucleus('B10',1)
 d_H = nucleus.d_H
 
 files_folder = f'./outputs/{nucleus.name}/v_performance/ADAPT'
@@ -36,10 +36,36 @@ overlap_basis = np.array(basis_df['Overlap'])
 gates_basis = np.array(basis_df['Gates'])
 
 
-
-
 E_random = random_df['E0']
 overlap_random = random_df['Overlap']
 gates_random = random_df['Gates']
-plt.scatter(E_random, gates_random, c=overlap_random, cmap='viridis', marker='o', label='Basis states')
-plt.savefig(f'prova.pdf')
+
+### FIGURE 1 ###
+fig, ax = plt.subplots(1,2, figsize=(12,5))
+ax[0].scatter(E_basis, gates_basis, marker = 'o', color = 'tab:blue', label='Basis states')
+ax[0].scatter(E_random, gates_random, marker = 'o', color = 'tab:red', label='Random states')
+ax[0].set_xlabel('Ref. state energy')
+ax[0].set_ylabel('Circuit depth')
+
+ax[0].legend()
+
+ax[1].scatter(overlap_basis, gates_basis, marker = 'o', color = 'tab:blue', label='Basis states')
+ax[1].scatter(overlap_random, gates_random, marker = 'o', color = 'tab:red', label='Random states')
+ax[1].set_xlabel('Ref. state overlap')
+ax[1].set_ylabel('Circuit depth')
+fig.suptitle(f'Reference state performance according to energy and overlap, {nucleus.name}', fontsize=15)
+fig.savefig(f'./figures/{nucleus.name}/ADAPT_energy_overlap.pdf', bbox_inches='tight')
+
+plt.close()
+
+
+
+### FIGURE 2 ###
+plt.scatter(E_random, gates_random, c=overlap_random, cmap='viridis', marker='o', label='Random states')
+cbar = plt.colorbar()
+cbar.set_label('Ref. state overlap')
+plt.xlabel('Ref. state energy')
+plt.ylabel('Circuit depth')
+plt.title(f'Reference state performance according to energy and overlap, {nucleus.name}', fontsize=15)
+plt.savefig(f'./figures/{nucleus.name}/ADAPT_energy_overlap_heatmap.pdf', bbox_inches='tight')
+plt.close()

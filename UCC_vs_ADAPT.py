@@ -160,7 +160,7 @@ def UCC_v_performance_2(nuc: str,
     if n_times%50 != 0:
         times_list.append(n_times%50)
 
-    vecs_list = [0,1,2,3,4,5,6,7,8,18,19,21,22,23,27]
+    vecs_list = range(n_vecs)
     for n_v in tqdm(vecs_list):
         gates = 0
         gates2 = 0
@@ -251,6 +251,7 @@ def ADAPT_v_performance(nuc: str,
     gates = []
     layers = []
     fcalls = []
+    successes = []
     with concurrent.futures.ProcessPoolExecutor() as executor:
         futures = []
         for n_v in range(nucleus.d_H):
@@ -259,13 +260,16 @@ def ADAPT_v_performance(nuc: str,
         for n_v,future in tqdm(enumerate(futures)):
             n_gates, n_fcalls, n_layers, success, E0, overlap = future.result()
             if success:
-                vecs.append(f'v{n_v}')
-                energies.append(E0)
-                overlaps.append(overlap)
-                gates.append(n_gates)
-                fcalls.append(n_fcalls)
-                layers.append(n_layers)
-        data = {'v': vecs, 'Gates': gates, 'Layers': layers, 'Fcalls': fcalls, 'E0': energies, 'Overlap': overlaps}
+                successes.append('SUCCESS')
+            else: 
+                successes.append('FAIL')
+            vecs.append(f'v{n_v}')
+            energies.append(E0)
+            overlaps.append(overlap)
+            gates.append(n_gates)
+            fcalls.append(n_fcalls)
+            layers.append(n_layers)
+        data = {'v': vecs, 'Gates': gates, 'Layers': layers, 'Fcalls': fcalls, 'E0': energies, 'Overlap': overlaps, 'Success': successes}
         df = pd.DataFrame(data)
         df.to_csv(os.path.join(output_folder, f'{method}_basis.csv'), sep='\t', index=False)
 
@@ -281,6 +285,7 @@ def ADAPT_v_performance(nuc: str,
         gates = []
         layers = []
         fcalls = []
+        successes = []
         for N in times_list:
             futures = []
             for _ in range(N):
@@ -291,12 +296,15 @@ def ADAPT_v_performance(nuc: str,
             for n_v,future in tqdm(enumerate(futures)):
                 n_gates, n_fcalls, n_layers, success, E0, overlap = future.result()
                 if success:
-                    energies.append(E0)
-                    overlaps.append(overlap)
-                    gates.append(n_gates)
-                    fcalls.append(n_fcalls)
-                    layers.append(n_layers)
-            data = {'Gates': gates, 'Layers': layers, 'Fcalls': fcalls, 'E0': energies, 'Overlap': overlaps}
+                    successes.append('SUCCESS')
+                else:
+                    successes.append('FAIL')
+                energies.append(E0)
+                overlaps.append(overlap)
+                gates.append(n_gates)
+                fcalls.append(n_fcalls)
+                layers.append(n_layers)
+            data = {'Gates': gates, 'Layers': layers, 'Fcalls': fcalls, 'E0': energies, 'Overlap': overlaps, 'Success': successes}
             df = pd.DataFrame(data)
             df.to_csv(os.path.join(output_folder, f'{method}_random.csv'), sep='\t', index=False)
                 
@@ -392,4 +400,5 @@ def seq_ADAPT_v_performance(nuc: str,
 
 
 if __name__ == '__main__':
-   ADAPT_v_performance('B8', 'L-BFGS-B',10, conv_criterion='Repeated op', test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced', n_times=100)
+#    ADAPT_v_performance('Li6', 'L-BFGS-B',10, conv_criterion='Repeated op', test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced', n_times=100)
+    UCC_v_performance('Li6', 'L-BFGS-B',10, n_times=100, test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced')
