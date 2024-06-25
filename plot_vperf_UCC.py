@@ -53,7 +53,7 @@ v=[r'$|\frac{1}{2}, -\frac{1}{2},\frac{1}{2}, \frac{1}{2}\rangle$',
     r'$|\frac{3}{2}, \frac{1}{2},\frac{1}{2}, -\frac{1}{2}\rangle$',
     r'$|\frac{3}{2}, \frac{1}{2},\frac{3}{2}, -\frac{1}{2}\rangle$',
     r'$|\frac{3}{2}, \frac{3}{2},\frac{3}{2}, -\frac{3}{2}\rangle$',
-    'Randomized states']
+    'Randomized']
 
 for i,f in enumerate(files):
     file_path=os.path.join(outputs_folder,f)
@@ -67,7 +67,6 @@ for i,f in enumerate(files):
         mean.append(float(d[1]))
         std.append(float(d[2]))
     x=np.arange(len(v))+dodge[i]
-    print(len(x),len(mean))
     ax2.errorbar(x,mean,yerr=std,marker=markers[i],linestyle='none',label=f.split('_')[0],zorder=5)
 
 
