@@ -99,7 +99,7 @@ def vrun_1time_UCC(nucleus, ref_state, pool_format, method, test_threshold, stop
     vqe.run()
     end = perf_counter()
     print(f'Elapsed time: {end-start} seconds')
-    return vqe.fcalls[-1]*len(vqe.ansatz.operator_pool), vqe.success
+    return vqe.fcalls[-1]*len(vqe.ansatz.operator_pool), vqe.fcalls, vqe.success
 
 
 def UCC_v_performance(nuc: str,
@@ -162,6 +162,8 @@ def UCC_v_performance_2(nuc: str,
 
     vecs_list = range(n_vecs)
     for n_v in tqdm(vecs_list):
+        fcalls = 0
+        fcalls2 = 0
         gates = 0
         gates2 = 0
         n_fails = 0
@@ -172,22 +174,30 @@ def UCC_v_performance_2(nuc: str,
                     future = executor.submit(vrun_1time_UCC, nucleus, vecs[n_v], pool_format, method, test_threshold, stop_at_threshold)
                     futures.append(future)
                 for future in futures:
-                    n_gates, success = future.result()
+                    n_gates,n_fcalls, success = future.result()
                     if success:
+                        fcalls += n_fcalls[-1]
+                        fcalls2 += n_fcalls[-1]**2
                         gates += n_gates
                         gates2 += n_gates**2
                     else:
                         n_fails += 1
         if (n_times-n_fails)==0:
+            mean_fcalls = 0
+            std_fcalls = 0
             mean_gates = 0
             std_gates = 0
         else:
+            mean_fcalls = fcalls/(n_times-n_fails)
             mean_gates = gates/(n_times-n_fails)
+            std_fcalls = np.sqrt(fcalls2/(n_times-n_fails) - mean_fcalls**2)
             std_gates = np.sqrt(gates2/(n_times-n_fails) - mean_gates**2)
-        file.write(f'v{n_v}'+'\t'+f'{mean_gates}'+'\t'+f'{std_gates}'+'\t'+f'{n_fails}'+'\n')
+        file.write(f'v{n_v}'+'\t'+f'{mean_fcalls}'+'\t'+f'{std_fcalls}'+'\t'+f'{mean_gates}'+'\t'+f'{std_gates}'+'\t'+f'{n_fails}'+'\n')
     
     rand_state = np.random.uniform(low=-1, high=1, size=nucleus.d_H)
     rand_state = rand_state/np.linalg.norm(rand_state)
+    fcalls = 0
+    fcalls2 = 0
     gates = 0
     gates2 = 0
     n_fails = 0
@@ -195,22 +205,28 @@ def UCC_v_performance_2(nuc: str,
         for N in times_list:
             futures = []
             for _ in range(N):
-                future = executor.submit(vrun_1time_UCC, nucleus, rand_state, pool_format, method, test_threshold, stop_at_threshold)
+                future = executor.submit(vrun_1time_UCC, nucleus, vecs[n_v], pool_format, method, test_threshold, stop_at_threshold)
                 futures.append(future)
             for future in futures:
-                n_gates, success = future.result()
+                n_gates,n_fcalls, success = future.result()
                 if success:
+                    fcalls += n_fcalls[-1]
+                    fcalls2 += n_fcalls[-1]**2
                     gates += n_gates
                     gates2 += n_gates**2
                 else:
                     n_fails += 1
     if (n_times-n_fails)==0:
+        mean_fcalls = 0
+        std_fcalls = 0
         mean_gates = 0
         std_gates = 0
     else:
+        mean_fcalls = fcalls/(n_times-n_fails)
         mean_gates = gates/(n_times-n_fails)
+        std_fcalls = np.sqrt(fcalls2/(n_times-n_fails) - mean_fcalls**2)
         std_gates = np.sqrt(gates2/(n_times-n_fails) - mean_gates**2)
-    file.write(f'random'+'\t'+f'{mean_gates}'+'\t'+f'{std_gates}'+'\t'+f'{n_fails}'+'\n')
+    file.write(f'random'+'\t'+f'{mean_fcalls}'+'\t'+f'{std_fcalls}'+'\t'+f'{mean_gates}'+'\t'+f'{std_gates}'+'\t'+f'{n_fails}'+'\n')
 
     file.close()
 
@@ -395,10 +411,52 @@ def seq_ADAPT_v_performance(nuc: str,
 
     file.close()
 
+def UCC_operator_ordering_and_params(nuc: str,
+                                method: str,
+                                vec: int,
+                                n_times: int = 20,
+                                test_threshold: float = 1e-4,
+                                stop_at_threshold: bool = True,
+                                pool_format: str = 'Reduced') -> None:
+    nucleus = Nucleus(nuc, 1)
+    vecs = np.eye(nucleus.d_H)
 
+    fig, ax = plt.subplots(1,2, figsize=(13,6),sharey=True)
+
+    for i in tqdm(range(n_times)):
+        ansatz = UCCAnsatz(nucleus=nucleus,ref_state=vecs[vec],pool_format=pool_format)
+        init_param = np.zeros(len(ansatz.operator_pool))
+        random.shuffle(ansatz.operator_pool)
+        vqe = UCCVQE(ansatz,init_param=init_param, method=method, test_threshold=test_threshold, stop_at_threshold=stop_at_threshold)
+        vqe.run()
+        fcalls = vqe.fcalls
+        rel_error = vqe.rel_error
+        label = 'Randomised ordering' if i==0 else None
+        ax[0].plot(fcalls,rel_error, label=label, alpha=0.7,color='tab:blue')
+    
+    for i in tqdm(range(n_times)):
+        ansatz = UCCAnsatz(nucleus=nucleus,ref_state=vecs[vec],pool_format=pool_format)
+        init_param = np.random.uniform(low=-np.pi, high=np.pi, size=len(ansatz.operator_pool))
+        vqe = UCCVQE(ansatz,init_param=init_param, method=method, test_threshold=test_threshold, stop_at_threshold=stop_at_threshold)
+        vqe.run()
+        fcalls = vqe.fcalls
+        rel_error = vqe.rel_error
+        label = 'Randomised initial parameters' if i==0 else None
+        ax[1].plot(fcalls,rel_error, label=label,alpha=0.7, color='tab:green')
+    
+    ax[0].set_yscale('log')
+    ax[1].set_yscale('log')
+    ax[0].set_xlabel('Function calls')
+    ax[1].set_xlabel('Function calls')
+    ax[0].set_ylabel('Relative error')
+    ax[0].legend()
+    fig.subplots_adjust(wspace=0.05)
+    
+    fig.savefig(f'figures/{nuc}/UCC_operator_ordering_and_params_v{vec}.pdf')
 
 
 
 if __name__ == '__main__':
 #    ADAPT_v_performance('Li6', 'L-BFGS-B',10, conv_criterion='Repeated op', test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced', n_times=100)
-    UCC_v_performance_2('Li6', 'SLSQP',10, n_times=100, test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced')
+    UCC_v_performance_2('Li6', 'L-BFGS-B',10, n_times=100, test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced')
+    # UCC_operator_ordering_and_params('Li6', 'L-BFGS-B', 0, n_times=20, test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced')
