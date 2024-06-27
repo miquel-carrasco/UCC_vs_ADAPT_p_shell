@@ -53,7 +53,7 @@ v=[r'$|\frac{1}{2}, -\frac{1}{2},\frac{1}{2}, \frac{1}{2}\rangle$',
     r'$|\frac{3}{2}, \frac{1}{2},\frac{1}{2}, -\frac{1}{2}\rangle$',
     r'$|\frac{3}{2}, \frac{1}{2},\frac{3}{2}, -\frac{1}{2}\rangle$',
     r'$|\frac{3}{2}, \frac{3}{2},\frac{3}{2}, -\frac{3}{2}\rangle$',
-    'Randomized']
+    'Randomized \n states']
 
 for i,f in enumerate(files):
     file_path=os.path.join(outputs_folder,f)
@@ -75,12 +75,12 @@ for i,f in enumerate(files):
 
 
 ax1.set_xticks(np.arange(len(v)),v,rotation=45)
-ax1.set_title(f'Optimizers and vectors performance (randomized $t_0$ {runs} runs)')
+ax1.set_title(f'Optimizers and vectors performance ({runs} random runs)')
 ax1.set_xlabel(r'State ($|j_p, m_p,j_n, m_n\rangle$)')
 ax1.set_ylabel('Infidelity')
-fig.legend(loc=(0.2,0.67),framealpha=1, frameon=True,edgecolor='black',fancybox=False)
+fig.legend(loc=(0.67,0.27),framealpha=1, frameon=True,edgecolor='black',fancybox=False,fontsize=9)
 ax2.set_ylabel('Function calls')
-ax2.set_ylim(0,755)
+ax2.set_ylim(0,1200)
 
 try:
     os.makedirs('figures')

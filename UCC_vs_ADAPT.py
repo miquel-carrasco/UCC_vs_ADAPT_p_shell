@@ -27,7 +27,7 @@ params = {'axes.linewidth': 1.4,
          "font.family": "serif",
          "font.serif": ["Palatino"]
          }
-# plt.rcParams.update(params)
+plt.rcParams.update(params)
 
 
 def UCC_vs_ADAPT(nuc: str, n_v: int, method: str = 'SLSQP', max_layers: int = 100) -> None:
@@ -449,14 +449,15 @@ def UCC_operator_ordering_and_params(nuc: str,
     ax[0].set_xlabel('Function calls')
     ax[1].set_xlabel('Function calls')
     ax[0].set_ylabel('Relative error')
-    ax[0].legend()
+    ax[0].legend(framealpha=1, frameon=True,edgecolor='black',fancybox=False, fontsize=12)
+    ax[1].legend(framealpha=1, frameon=True,edgecolor='black',fancybox=False, fontsize=12)
     fig.subplots_adjust(wspace=0.05)
     
-    fig.savefig(f'figures/{nuc}/UCC_operator_ordering_and_params_v{vec}.pdf')
+    fig.savefig(f'figures/{nuc}/UCC_operator_ordering_and_params_v{vec}.pdf',bbox_inches='tight')
 
 
 
 if __name__ == '__main__':
 #    ADAPT_v_performance('Li6', 'L-BFGS-B',10, conv_criterion='Repeated op', test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced', n_times=100)
-    UCC_v_performance_2('Li6', 'L-BFGS-B',10, n_times=100, test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced')
-    # UCC_operator_ordering_and_params('Li6', 'L-BFGS-B', 0, n_times=20, test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced')
+    # UCC_v_performance_2('Li6', 'L-BFGS-B',10, n_times=100, test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced')
+    UCC_operator_ordering_and_params('Li6', 'L-BFGS-B', 0, n_times=15, test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced')
