@@ -19,7 +19,7 @@ params = {'axes.linewidth': 1.4,
          }
 plt.rcParams.update(params)
 
-nuc_list=['Li6','Li8','B8','Li10','N10','B10','Be6','He6','Be8','Be10','C10']
+nuc_list=['Li6','Li8','B8','Li10','N10','B10','Be6','He6','Be8']
 
 fig,ax = plt.subplots(1,2,figsize=(13,6))
 
@@ -46,10 +46,17 @@ for nuc_name in nuc_list:
     adapt_data = pd.read_csv(os.path.join(adapt_folder,adapt_file[0]),sep='\t')
     if 'Success' in adapt_data.columns:
         adapt_data=adapt_data[adapt_data['Success']=='SUCCESS']
-    adapt_fcalls = adapt_data['Fcalls'].max()
-    adapt_depth = adapt_data['Gates'].max()
-    ax[0].scatter(d_H,adapt_fcalls,marker='s',label=f'{nuc.name}')
-    ax[1].scatter(d_H,adapt_depth,marker='s',label=f'{nuc.name}')
+    adapt_fcalls = adapt_data['Fcalls'].mean()
+    adapt_fcalls_std = adapt_data['Fcalls'].std()
+    adapt_depth = adapt_data['Gates'].mean()
+    adapt_depth_std = adapt_data['Gates'].std()
+
+    ax[0].errorbar(d_H,adapt_fcalls,yerr=adapt_fcalls_std,marker='^',label=f'{nuc.name}')
+    ax[1].errorbar(d_H,adapt_depth,yerr=adapt_depth_std,marker='^',label=f'{nuc.name}')
 
 ax[0].legend()
+ax[0].set_xlabel('Hilbert space dimension')
+ax[0].set_ylabel('Function calls')
+ax[1].set_xlabel('Hilbert space dimension')
+ax[1].set_ylabel('Circuit depth')
 plt.show()
