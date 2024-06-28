@@ -19,12 +19,14 @@ params = {'axes.linewidth': 1.4,
          }
 plt.rcParams.update(params)
 
-nuc_list_odd=['Li6','Li8','B8','Li10','N10','B10']
-nuc_list_even=['Be6','He6','Be8','Be10','C10']
+nuc_list=['Li6','Li8','B8','Li10','N10','B10','Be6','He6','Be8','Be10','C10']
+x=[9,27.5,28.5,10,11,81,4.5,5.5,50,51,52]
+colors=['tab:green','tab:red','tab:red','tab:green','tab:green','tab:brown','tab:blue','tab:blue','tab:orange','tab:orange','tab:orange']
+labels=[r'$d_{\hat{H}}=10$','28',None,None,None,'81','5',None,'51',None,None]
 
-fig,ax = plt.subplots(1,2,figsize=(13,6))
+fig,ax = plt.subplots(1,1,figsize=(8,6))
 
-for nuc_name in nuc_list_odd:
+for i,nuc_name in enumerate(nuc_list):
     nuc = Nucleus(nuc_name,1)
     d_H = nuc.d_H
     UCC_folder = (f'./outputs/{nuc.name}/v_performance/UCC_Reduced')
@@ -32,10 +34,10 @@ for nuc_name in nuc_list_odd:
     ucc_file = [f for f in ucc_file if f'L-BFGS-B' in f]
     ucc_data = pd.read_csv(os.path.join(UCC_folder,ucc_file[0]),sep='\t',header=None)
     ucc_data[[1,2,3,4]].astype(float)
-    ucc_data = ucc_data[ucc_data[0]=='v0']
+    ucc_data = ucc_data[ucc_data[0]=='random']
     ucc_depth = ucc_data[3]
     ucc_depth_std = ucc_data[4]
-    ax[0].errorbar(d_H,ucc_depth,yerr=ucc_depth_std,fmt='o',label=f'{nuc.name}')
+    ax.errorbar(x[i],ucc_depth,yerr=ucc_depth_std,fmt='o',label=labels[i],color=colors[i])
 
     adapt_folder = (f'./outputs/{nuc.name}/v_performance/ADAPT')
     adapt_file = os.listdir(adapt_folder)
@@ -46,36 +48,11 @@ for nuc_name in nuc_list_odd:
     adapt_depth = adapt_data['Gates'].mean()
     adapt_depth_std = adapt_data['Gates'].std()
 
-    ax[0].errorbar(d_H,adapt_depth,yerr=adapt_depth_std,marker='p',label=f'{nuc.name}')
+    ax.errorbar(x[i],adapt_depth,yerr=adapt_depth_std,marker='p',label=labels[i],color=colors[i])
 
-for nuc_name in nuc_list_even:
-    nuc = Nucleus(nuc_name,1)
-    d_H = nuc.d_H
-    UCC_folder = (f'./outputs/{nuc.name}/v_performance/UCC_Reduced')
-    ucc_file = os.listdir(UCC_folder)
-    ucc_file = [f for f in ucc_file if f'L-BFGS-B' in f]
-    ucc_data = pd.read_csv(os.path.join(UCC_folder,ucc_file[0]),sep='\t',header=None)
-    ucc_data[[1,2,3,4]].astype(float)
-    ucc_data = ucc_data[ucc_data[0]=='v0']
-    ucc_depth = ucc_data[3]
-    ucc_depth_std = ucc_data[4]
-    ax[1].errorbar(d_H,ucc_depth,yerr=ucc_depth_std,fmt='o',label=f'{nuc.name}')
 
-    adapt_folder = (f'./outputs/{nuc.name}/v_performance/ADAPT')
-    adapt_file = os.listdir(adapt_folder)
-    adapt_file = [f for f in adapt_file if 'basis.csv' in f]
-    adapt_data = pd.read_csv(os.path.join(adapt_folder,adapt_file[0]),sep='\t')
-    if 'Success' in adapt_data.columns:
-        adapt_data=adapt_data[adapt_data['Success']=='SUCCESS']
-    adapt_depth = adapt_data['Gates'].mean()
-    adapt_depth_std = adapt_data['Gates'].std()
-
-    ax[1].errorbar(d_H,adapt_depth,yerr=adapt_depth_std,marker='p',label=f'{nuc.name}')
-
-ax[0].legend()
-ax[0].set_xlabel('Hilbert space dimension')
-ax[1].set_xlabel('Hilbert space dimension')
-ax[1].set_ylabel('Circuit depth')
-ax[0].set_yscale('log')
-ax[1].set_yscale('log')
+ax.legend()
+ax.set_xlabel('Hilbert space dimension')
+ax.set_ylabel('Circuit depth')
+ax.set_yscale('log')
 plt.show()

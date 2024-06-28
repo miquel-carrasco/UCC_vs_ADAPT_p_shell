@@ -449,6 +449,8 @@ def UCC_operator_ordering_and_params(nuc: str,
     ax[0].set_xlabel('Function calls')
     ax[1].set_xlabel('Function calls')
     ax[0].set_ylabel('Relative error')
+    ax[0].set_xlim(0, 1000)
+    ax[1].set_xlim(0, 3000)
     ax[0].legend(framealpha=1, frameon=True,edgecolor='black',fancybox=False, fontsize=12)
     ax[1].legend(framealpha=1, frameon=True,edgecolor='black',fancybox=False, fontsize=12)
     fig.subplots_adjust(wspace=0.05)
@@ -458,6 +460,6 @@ def UCC_operator_ordering_and_params(nuc: str,
 
 
 if __name__ == '__main__':
-   ADAPT_v_performance('Be8', 'L-BFGS-B',10, conv_criterion='Repeated op', test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced', n_times=0)
+#    ADAPT_v_performance('Be8', 'L-BFGS-B',10, conv_criterion='Repeated op', test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced', n_times=0)
     # UCC_v_performance_2('Li6', 'L-BFGS-B',10, n_times=50, test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced')
-    # UCC_operator_ordering_and_params('Li6', 'L-BFGS-B', 0, n_times=15, test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced')
+    UCC_operator_ordering_and_params('Li6', 'L-BFGS-B', 0, n_times=15, test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced')
