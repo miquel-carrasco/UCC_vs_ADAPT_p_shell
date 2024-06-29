@@ -622,6 +622,7 @@ if __name__ == '__main__':
     VQE_0.run()
     VQE_1.run()
 
+    plt.figure(figsize=(4.5,4))
     plt.plot(VQE_0.fcalls, VQE_0.rel_error, label=r'$|\frac{1}{2}-\frac{1}{2}\frac{1}{2}\frac{1}{2}\rangle$')
     plt.plot(VQE_1.fcalls, VQE_1.rel_error, label=r'$|\frac{1}{2}-\frac{1}{2}\frac{3}{2}\frac{1}{2}\rangle$')
 
@@ -633,5 +634,6 @@ if __name__ == '__main__':
     plt.xlabel('Function calls')
     plt.ylabel('Relative error')
     plt.legend(loc=(0.25,0.25), fontsize='large')
+
 
     plt.savefig('figures/Li6/ADAPT_test_2basis.pdf', bbox_inches='tight')

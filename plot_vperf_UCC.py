@@ -10,8 +10,8 @@ params = {'axes.linewidth': 1.4,
          'axes.linewidth': 1.5,
          'lines.markeredgecolor': "black",
      	'lines.linewidth': 1.5,
-         'xtick.labelsize': 11,
-         'ytick.labelsize': 14,
+         'xtick.labelsize': 12,
+         'ytick.labelsize': 12,
          "text.usetex": True,
          "font.family": "serif",
          "font.serif": ["Palatino"]
@@ -27,12 +27,13 @@ runs=100
 outputs_folder=(f'./outputs/{Li6.name}/v_performance/UCC_Reduced')
 files=os.listdir(outputs_folder)
 files=[f for f in files if f'ntimes={runs}' in f]
+files=[f for f in files if 'COBYLA' not in f]
 
 optimizers=[]
 dodge=np.linspace(-0.3,0.3,len(files))
-markers=['o','v','p','d','s','X']
+markers=['o','p','v','s','X']
 
-fig, ax1 = plt.subplots()
+fig, ax1 = plt.subplots(figsize=(9,6))
 ax2=ax1.twinx()
 
 infidelity=[]
@@ -55,6 +56,8 @@ v=[r'$|\frac{1}{2}, -\frac{1}{2},\frac{1}{2}, \frac{1}{2}\rangle$',
     r'$|\frac{3}{2}, \frac{3}{2},\frac{3}{2}, -\frac{3}{2}\rangle$',
     'Randomized \n states']
 
+colors=['tab:blue','tab:green','tab:red']
+
 for i,f in enumerate(files):
     file_path=os.path.join(outputs_folder,f)
     data=open(file_path,'r').readlines()
@@ -67,7 +70,7 @@ for i,f in enumerate(files):
         mean.append(float(d[1]))
         std.append(float(d[2]))
     x=np.arange(len(v))+dodge[i]
-    ax2.errorbar(x,mean,yerr=std,marker=markers[i],linestyle='none',label=f.split('_')[0],zorder=5)
+    ax2.errorbar(x,mean,yerr=std,marker=markers[i], color=colors[i],linestyle='none',label=f.split('_')[0],zorder=5)
 
 
 
@@ -75,7 +78,7 @@ for i,f in enumerate(files):
 
 
 ax1.set_xticks(np.arange(len(v)),v,rotation=45)
-ax1.set_title(f'Optimizers and vectors performance ({runs} random runs)')
+ax1.set_title(r'Optimizers and vectors performance, $^{6}Li$)')
 ax1.set_xlabel(r'State ($|j_p, m_p,j_n, m_n\rangle$)')
 ax1.set_ylabel('Infidelity')
 fig.legend(loc=(0.67,0.27),framealpha=1, frameon=True,edgecolor='black',fancybox=False,fontsize=9)

@@ -16,13 +16,13 @@ from VQE.Methods import UCCVQE, OptimizationConvergedException, ADAPTVQE
 
 
 params = {'axes.linewidth': 1.4,
-         'axes.labelsize': 16,
-         'axes.titlesize': 18,
+         'axes.labelsize': 14,
+         'axes.titlesize': 16,
          'axes.linewidth': 1.5,
          'lines.markeredgecolor': "black",
      	'lines.linewidth': 1.5,
-         'xtick.labelsize': 11,
-         'ytick.labelsize': 14,
+         'xtick.labelsize': 12,
+         'ytick.labelsize': 12,
          "text.usetex": True,
          "font.family": "serif",
          "font.serif": ["Palatino"]
@@ -423,21 +423,29 @@ def UCC_operator_ordering_and_params(nuc: str,
 
     fig, ax = plt.subplots(1,2, figsize=(13,6),sharey=True)
 
+    shuffles=[]
+    n_fcalls=[]
     for i in tqdm(range(n_times)):
-        ansatz = UCCAnsatz(nucleus=nucleus,ref_state=vecs[vec],pool_format=pool_format)
+        ansatz = UCCAnsatz(nucleus=nucleus,ref_state=vecs[vec],pool_format='Reduced')
         init_param = np.zeros(len(ansatz.operator_pool))
         random.shuffle(ansatz.operator_pool)
+        shuffles.append(ansatz.operator_pool)
+
         vqe = UCCVQE(ansatz,init_param=init_param, method=method, test_threshold=test_threshold, stop_at_threshold=stop_at_threshold)
         vqe.run()
         fcalls = vqe.fcalls
+        n_fcalls.append(fcalls[-1])
         rel_error = vqe.rel_error
-        label = 'Randomised ordering' if i==0 else None
+        label = 'Randomised operator ordering' if i==0 else None
         ax[0].plot(fcalls,rel_error, label=label, alpha=0.7,color='tab:blue')
-    
+
+    min_fcalls = min(n_fcalls)
+    shuffle = shuffles[n_fcalls.index(min_fcalls)]
     for i in tqdm(range(n_times)):
-        ansatz = UCCAnsatz(nucleus=nucleus,ref_state=vecs[vec],pool_format=pool_format)
-        init_param = np.random.uniform(low=-np.pi, high=np.pi, size=len(ansatz.operator_pool))
-        vqe = UCCVQE(ansatz,init_param=init_param, method=method, test_threshold=test_threshold, stop_at_threshold=stop_at_threshold)
+        nucleus = Nucleus(nuc, 1)
+        ansatz = UCCAnsatz(nucleus=nucleus,ref_state=vecs[vec],pool_format='Reduced')
+        ansatz.operator_pool = shuffle
+        vqe = UCCVQE(ansatz, method=method, test_threshold=test_threshold, stop_at_threshold=stop_at_threshold)
         vqe.run()
         fcalls = vqe.fcalls
         rel_error = vqe.rel_error
@@ -450,10 +458,11 @@ def UCC_operator_ordering_and_params(nuc: str,
     ax[1].set_xlabel('Function calls')
     ax[0].set_ylabel('Relative error')
     ax[0].set_xlim(0, 1000)
-    ax[1].set_xlim(0, 3000)
-    ax[0].legend(framealpha=1, frameon=True,edgecolor='black',fancybox=False, fontsize=12)
-    ax[1].legend(framealpha=1, frameon=True,edgecolor='black',fancybox=False, fontsize=12)
+    ax[1].set_xlim(0, 1000)
+    ax[0].legend(framealpha=1, frameon=True,edgecolor='black',fancybox=False, fontsize=14)
+    ax[1].legend(framealpha=1, frameon=True,edgecolor='black',fancybox=False, fontsize=14)
     fig.subplots_adjust(wspace=0.05)
+    fig.suptitle(f'UCC performance depending on the operator ordering and initial parameters, {nuc}',fontsize=18)
     
     fig.savefig(f'figures/{nuc}/UCC_operator_ordering_and_params_v{vec}.pdf',bbox_inches='tight')
 
@@ -462,4 +471,9 @@ def UCC_operator_ordering_and_params(nuc: str,
 if __name__ == '__main__':
 #    ADAPT_v_performance('Be8', 'L-BFGS-B',10, conv_criterion='Repeated op', test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced', n_times=0)
     # UCC_v_performance_2('Li6', 'L-BFGS-B',10, n_times=50, test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced')
-    UCC_operator_ordering_and_params('Li6', 'L-BFGS-B', 0, n_times=15, test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced')
+    # UCC_operator_ordering_and_params('Li6', 'L-BFGS-B', 0, n_times=15, test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced')
+    Li10 = Nucleus('B10', 1)
+    ref_state = np.eye(Li10.d_H)[0]
+    UCC_ansatz = UCCAnsatz(Li10, ref_state, pool_format='ReducedII')
+    print(len(UCC_ansatz.operator_pool))
+

@@ -19,7 +19,7 @@ params = {'axes.linewidth': 1.4,
          }
 plt.rcParams.update(params)
 
-nucleus = Nucleus('B8',1)
+nucleus = Nucleus('Li8',1)
 d_H = nucleus.d_H
 
 runs=50
@@ -48,7 +48,7 @@ ucc_data[[1,2,3,4]].astype(float)
 ucc_data = ucc_data[ucc_data[0]!='random']
 ucc_depth = ucc_data[3]
 ucc_depth_std = ucc_data[4]
-ax2.errorbar(x,ucc_depth,yerr=ucc_depth_std,marker='o',color='tab:blue',linestyle='none',label='UCC',zorder=5)
+ax2.errorbar(x,ucc_depth,yerr=ucc_depth_std,marker='p',color='tab:green',linestyle='none',label='UCC',zorder=5)
 
 
 adapt_folder = (f'./outputs/{nucleus.name}/v_performance/ADAPT')
@@ -76,4 +76,4 @@ try:
 except OSError:
     pass
 
-fig.savefig(f'./figures/{nucleus.name}/UCC_vs_ADAPT.pdf',bbox_inches='tight')
+fig.savefig(f'./figures/{nucleus.name}/UCC_vs_ADAPT_{nucleus.name}.pdf',bbox_inches='tight')

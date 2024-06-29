@@ -27,6 +27,8 @@ class Ansatz():
             self.operator_pool = nucleus.operators
         elif pool_format == 'Reduced':
             self.operator_pool = self.reduce_operators()
+        elif pool_format == 'ReducedII':
+            self.operator_pool = self.reduce_operators_II()
         elif pool_format == 'Only acting':
             self.operator_pool = self.only_acting_operators()
         elif pool_format == 'Custom':
@@ -48,6 +50,22 @@ class Ansatz():
             if klij not in all_ijkl:
                 operators.append(op)
                 all_ijkl.append(ijkl)
+        return operators
+    
+    def reduce_operators_II(self) -> list:
+        """Returns the list of non repeated operators used in the cluster"""
+
+        operators = []
+        all_matrix = []
+        for op in self.nucleus.operators:
+            matrix = op.matrix
+            repeated = False
+            for m in all_matrix:
+                if np.allclose(matrix, -m) or np.allclose(matrix, m):
+                    repeated = True
+            if  repeated == False:
+                operators.append(op)
+                all_matrix.append(matrix)
         return operators
     
 

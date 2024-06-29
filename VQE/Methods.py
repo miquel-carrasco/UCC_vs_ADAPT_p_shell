@@ -58,7 +58,7 @@ class UCCVQE(VQE):
 
     def __init__(self, Ansatz: UCCAnsatz,
                  init_param: list = [],
-                 test_threshold: float = 1e-6,
+                 test_threshold: float = 1e-4,
                  method: str = 'SLSQP',
                  stop_at_threshold: bool = True) -> None:
         

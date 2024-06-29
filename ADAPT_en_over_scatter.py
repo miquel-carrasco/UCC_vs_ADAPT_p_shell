@@ -6,13 +6,13 @@ import numpy.linalg as la
 from VQE.Nucleus import Nucleus
 
 params = {'axes.linewidth': 1.4,
-         'axes.labelsize': 13,
-         'axes.titlesize': 15,
+         'axes.labelsize': 16,
+         'axes.titlesize': 18,
          'axes.linewidth': 1.5,
          'lines.markeredgecolor': "black",
      	'lines.linewidth': 1.5,
-         'xtick.labelsize': 11,
-         'ytick.labelsize': 11,
+         'xtick.labelsize': 12,
+         'ytick.labelsize': 12,
          "text.usetex": True,
          "font.family": "serif",
          "font.serif": ["Palatino"]
@@ -51,9 +51,10 @@ ax[0].set_ylabel('Circuit depth')
 ax[1].scatter(overlap_basis, gates_basis, marker = 'p', color = 'tab:blue', label='Basis states')
 ax[1].scatter(overlap_random, gates_random, marker = 's', color = 'tab:red', label='Random states')
 ax[1].set_xlabel('Ref. state overlap')
+ax[1].set_xscale('log')
 ax[1].legend()
 fig.subplots_adjust(wspace=0.05)
-fig.suptitle(f'Reference state performance according to energy and overlap, {nucleus.name}', fontsize=15)
+fig.suptitle(f'Reference state performance according to energy and overlap, {nucleus.name}',fontsize=18)
 fig.savefig(f'./figures/{nucleus.name}/ADAPT_energy_overlap.pdf', bbox_inches='tight')
 
 plt.close()
@@ -67,6 +68,6 @@ cbar = plt.colorbar()
 cbar.set_label('Ref. state overlap')
 plt.xlabel('Ref. state energy')
 plt.ylabel('Circuit depth')
-plt.title(f'Reference state performance according to energy and overlap, {nucleus.name}', fontsize=15)
+plt.title(f'Reference state performance according to energy and overlap, {nucleus.name}')
 plt.savefig(f'./figures/{nucleus.name}/ADAPT_energy_overlap_heatmap.pdf', bbox_inches='tight')
 plt.close()
