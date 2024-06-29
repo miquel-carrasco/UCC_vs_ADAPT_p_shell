@@ -470,10 +470,7 @@ def UCC_operator_ordering_and_params(nuc: str,
 
 if __name__ == '__main__':
 #    ADAPT_v_performance('Be8', 'L-BFGS-B',10, conv_criterion='Repeated op', test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced', n_times=0)
-    # UCC_v_performance_2('Li6', 'L-BFGS-B',10, n_times=50, test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced')
+    UCC_v_performance_2('N10', 'L-BFGS-B',10, n_times=50, test_threshold=1e-4, stop_at_threshold=True, pool_format='ReducedII')
     # UCC_operator_ordering_and_params('Li6', 'L-BFGS-B', 0, n_times=15, test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced')
-    Li10 = Nucleus('B10', 1)
-    ref_state = np.eye(Li10.d_H)[0]
-    UCC_ansatz = UCCAnsatz(Li10, ref_state, pool_format='ReducedII')
-    print(len(UCC_ansatz.operator_pool))
+
 
