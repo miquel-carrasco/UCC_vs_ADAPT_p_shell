@@ -1,5 +1,5 @@
 import numpy as np
-from .Nucleus import Nucleus, TwoBodyExcitationOperator
+from Nucleus import Nucleus, TwoBodyExcitationOperator
 from scipy.linalg import expm
 import random
 from numba import jit, cuda
@@ -45,11 +45,13 @@ class Ansatz():
         operators = []
         all_ijkl = []
         for op in self.nucleus.operators:
-            ijkl = op.ijkl
-            klij = [ijkl[2], ijkl[3], ijkl[0], ijkl[1]]
-            if klij not in all_ijkl:
-                operators.append(op)
-                all_ijkl.append(ijkl)
+            if np.allclose(op.matrix, np.zeros((self.nucleus.d_H, self.nucleus.d_H))) == False:
+                ijkl = op.ijkl
+                klij = [ijkl[2], ijkl[3], ijkl[0], ijkl[1]]
+                if ijkl[0]<ijkl[1] and ijkl[2]<ijkl[3]:
+                    if klij not in all_ijkl:
+                        operators.append(op)
+                        all_ijkl.append(ijkl)
         return operators
     
     def reduce_operators_II(self) -> list:
@@ -212,6 +214,7 @@ class ADAPTAnsatz(Ansatz):
         gradients = []
         sigma = self.nucleus.H.dot(self.ansatz)
         gradients = [abs(2*(sigma.conj().T.dot(op.matrix.dot(self.ansatz))).real) for op in self.operator_pool]
+        ijkl = [op.ijkl for op in self.operator_pool]
         max_gradient = max(gradients)
         max_operator = self.operator_pool[gradients.index(max_gradient)]
         return max_operator,max_gradient

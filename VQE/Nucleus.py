@@ -11,12 +11,13 @@ from numba import jit, cuda
 class TwoBodyExcitationOperator():
     "Class to define an antihermitian operator corresponding to a two-body excitation."
 
-    def __init__(self, label: int, H2b: float, ijkl: list, matrix: lil_matrix, commutator: np.ndarray) -> None:
+    def __init__(self, label: int, H2b: float, ijkl: list, matrix_og, matrix, commutator: np.ndarray) -> None:
         self.label = label
         self.H2b = H2b
         self.ijkl = ijkl
         self.matrix = matrix
         self.commutator = commutator
+        self.matrix_og = matrix_og
         
 
 class Nucleus():
@@ -32,7 +33,7 @@ class Nucleus():
         self.states = self.states()
         self.H = self.hamiltonian_matrix()
         self.eig_val, self.eig_vec = la.eigh(self.H)
-        self.operators = self.sparse_operators()
+        self.operators = self.operators_list_2()
     
 
     def hamiltonian_matrix(self) -> csc_matrix:
@@ -42,6 +43,25 @@ class Nucleus():
         H_data = np.loadtxt(file_path,delimiter=' ', dtype=float)
         for line in H_data:
             H[int(line[0]), int(line[1])] = line[2]
+        return H
+
+    def hamiltonian_matrix_2(self) -> csc_matrix:
+
+        file_path = os.path.join(self.data_folder, 'sp.dat')
+        H = np.zeros((self.d_H, self.d_H))
+        eps = np.zeros(12)
+        f = open(file_path, 'r')
+        f.readline()
+        for i in range(12):
+            eps[i] = f.readline().strip().split()[-1]
+        
+        for a, vec in enumerate(self.states):
+            for i in range(len(vec)):
+                H[a, a] += eps[vec[i]]
+
+        for op in self.operators:
+            H += 1/4 * op.H2b * op.matrix_og
+
         return H
     
     def states(self) -> list:
@@ -59,6 +79,36 @@ class Nucleus():
             states.append(tuple(sp_labels))
         return states
     
+
+    def operators_list_2(self) -> list:
+
+        operators = []
+
+        H2b_path = os.path.join(self.data_folder, f'H2b.dat')
+        H2b_data = np.loadtxt(H2b_path, dtype=str)
+        label = 1
+        for h in H2b_data:
+            indices = [int(h[1]), int(h[2]), int(h[3]), int(h[4])]
+            matrix_og = np.zeros((self.d_H, self.d_H))
+            operator_matrix = np.zeros((self.d_H, self.d_H))
+            for state in self.states:
+                new_state, parity = self.excitation_numbers_2(state, indices)
+                if new_state in self.states:
+                    H2b = float(h[0])
+                    column = self.states.index(state)
+                    row = self.states.index(new_state)
+                    this_excitation = np.zeros((self.d_H, self.d_H))
+                    this_excitation[row, column] = parity
+                    matrix_og += this_excitation
+                    operator_matrix += this_excitation
+                    operator_matrix += -this_excitation.T
+                    commutator = self.H.dot(operator_matrix) - operator_matrix.dot(self.H)
+            if np.allclose(matrix_og, np.zeros((self.d_H, self.d_H))) == False:
+                operators.append(TwoBodyExcitationOperator(label, H2b, indices, matrix_og, operator_matrix, commutator))
+                label += 1
+        
+        return operators
+
     def operators_list(self) -> list:
         """Returns the list of ALL antihermitian operators corresponding
             to two-body excitations. Each operator is represented by a TwoBodyExcitationOperator object."""
@@ -128,6 +178,22 @@ class Nucleus():
         
         return operators
     
+    def excitation_numbers_2(self, state: tuple, indices: list) -> tuple:
+
+        parity = 1
+        if indices[2] in state and indices[3] in state:
+            new_state = list(state)
+            for i in [indices[3], indices[2]]:
+                parity *= (-1)**(new_state.index(i))
+                new_state.remove(i)
+            for i in [indices[0], indices[1]]:
+                new_state.append(i)
+                new_state.sort()
+                parity *= (-1)**(new_state.index(i))
+            return tuple(new_state), parity
+        else:
+            return tuple(), 0
+
 
     def excitation_numbers(self, state: tuple, indices: list) -> tuple:
 
@@ -148,10 +214,6 @@ class Nucleus():
             
             
 if __name__=='__main__':
-    He8 = Nucleus('He8', 0)
-    list = [op.matrix for op in He8.operators if op.ijkl==[7,8,6,9]]
-    mat = list[0]
-    for i in range(len(mat)):
-        for j in range(len(mat)):
-            if mat[i,j] != 0:
-                print(i,j,mat[i,j])
+    Li6 = Nucleus('Li6', 1)
+
+    print(len(Li6.operators))
