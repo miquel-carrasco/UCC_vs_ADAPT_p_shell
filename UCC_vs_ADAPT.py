@@ -469,8 +469,8 @@ def UCC_operator_ordering_and_params(nuc: str,
 
 
 if __name__ == '__main__':
-#    ADAPT_v_performance('Be8', 'L-BFGS-B',10, conv_criterion='Repeated op', test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced', n_times=0)
-    # UCC_v_performance_2('N10', 'L-BFGS-B',10, n_times=50, test_threshold=1e-4, stop_at_threshold=True, pool_format='ReducedII')
+#    ADAPT_v_performance('B10', 'L-BFGS-B',10, conv_criterion='Repeated op', test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced', n_times=50)
+    UCC_v_performance_2('B8', 'L-BFGS-B',28, n_times=50, test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced')
     # UCC_operator_ordering_and_params('Li6', 'L-BFGS-B', 0, n_times=15, test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced')
     Li6 = Nucleus('Li8', 1)
     ref_state = np.eye(Li6.d_H)[1]

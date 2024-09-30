@@ -3,8 +3,8 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 
-from .Nucleus import Nucleus, TwoBodyExcitationOperator
-from .Ansatze import UCCAnsatz, ADAPTAnsatz
+from VQE.Nucleus import Nucleus, TwoBodyExcitationOperator
+from VQE.Ansatze import UCCAnsatz, ADAPTAnsatz
 from time import perf_counter
 
 class OptimizationConvergedException(Exception):
@@ -212,6 +212,11 @@ class ADAPTVQE(VQE):
         fcalls_layers = [self.fcalls[-1]]
         self.state_layers.append(self.ansatz.ansatz)
 
+        # print("LAYER 0")
+        # print('Energy: ',energy_layers[-1])
+        # print('Operators: ',self.ansatz.added_operators[-1].ijkl)
+        # print('Gradient: ',gradient_layers[-1])
+
         while self.ansatz.minimum == False and len(self.ansatz.added_operators)<self.max_layers:
             self.tot_operators_layers.append(self.tot_operators)
             self.ansatz.added_operators.append(next_operator)
@@ -232,6 +237,7 @@ class ADAPTVQE(VQE):
                                   callback=self.callback,
                                   options=self.options)
                 self.parameters = list(result.x)
+                nf = result.nfev
                 if self.return_data:
                     if self.method!='COBYLA':
                         opt_grad= np.linalg.norm(result.jac)
@@ -247,6 +253,13 @@ class ADAPTVQE(VQE):
                     self.ansatz.minimum = True
                 else:
                     energy_layers.append(self.energy[-1])
+                    # print("LAYER ",len(energy_layers)-1)
+                    # print('Energy: ',energy_layers[-1])
+                    # print('Operators: ',self.ansatz.added_operators[-1].ijkl)
+                    # print('Gradient: ',gradient_layers[-1])
+                    # print("Parameters: ",self.parameters)
+                    # print("Tot operations: ", self.tot_operators)
+                    # print("Fcalls: ", nf)
                     rel_error_layers.append(self.rel_error[-1])
                     fcalls_layers.append(self.fcalls[-1])
             except OptimizationConvergedException:
@@ -410,21 +423,12 @@ class ADAPTVQE(VQE):
     
 
 
-
-
-
 if __name__ == '__main__':
-    Li6 = Nucleus('Li6', 1)
-    ref_state = np.eye(Li6.d_H)[1]
-    UCC_ansatz = UCCAnsatz(Li6, ref_state)
-    vqe = UCCVQE(UCC_ansatz, np.zeros(len(UCC_ansatz.operators)))
-    vqe.run()
-    t_fin = vqe.final_parameters
-    t0 = np.random.rand(len(t_fin))
+    nuc = Nucleus('Be8', 1)
+    ref_state = np.eye(len(nuc.H))[6]
+    ansatz = ADAPTAnsatz(nuc, ref_state, pool_format='Reduced')
+    
+    ADAPT = ADAPTVQE(ansatz, method='BFGS', conv_criterion='Repeated op', max_layers=100, return_data=True, test_threshold=1e-6, tol_method='Manual')
 
-    t3 = np.linspace(-7,7,1000)
-    for n in range(len(t0)):
-        E = [UCC_ansatz.lanscape(t_fin,t,n) for t in t3]
-        plt.plot(t3,E)
-        print(UCC_ansatz.lanscape(t_fin,0,n)-UCC_ansatz.lanscape(t_fin,2*np.pi,n))
-    plt.show()
+    gradient_layers, opt_grad_layers, energy_layers, rel_error_layers, fcalls_layers = ADAPT.run()
+    print(len(ansatz.added_operators))
