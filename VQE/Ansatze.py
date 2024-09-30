@@ -1,5 +1,5 @@
 import numpy as np
-from Nucleus import Nucleus, TwoBodyExcitationOperator
+from VQE.Nucleus import Nucleus, TwoBodyExcitationOperator
 from scipy.linalg import expm
 import random
 from numba import jit, cuda
