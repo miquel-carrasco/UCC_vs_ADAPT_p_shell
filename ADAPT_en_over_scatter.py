@@ -11,15 +11,15 @@ params = {'axes.linewidth': 1.4,
          'axes.linewidth': 1.5,
          'lines.markeredgecolor': "black",
      	'lines.linewidth': 1.5,
-         'xtick.labelsize': 12,
-         'ytick.labelsize': 12,
+         'xtick.labelsize': 11,
+         'ytick.labelsize': 13,
          "text.usetex": True,
          "font.family": "serif",
          "font.serif": ["Palatino"]
          }
 plt.rcParams.update(params)
 
-nucleus = Nucleus('B10',1)
+nucleus = Nucleus('Be8',1)
 d_H = nucleus.d_H
 
 files_folder = f'./outputs/{nucleus.name}/v_performance/ADAPT'
@@ -42,19 +42,19 @@ gates_random = random_df['Gates']
 
 ### FIGURE 1 ###
 fig, ax = plt.subplots(1,2, figsize=(13,6), sharey=True)
-ax[0].scatter(E_basis, gates_basis, marker = 'p', color = 'tab:blue', label='Basis states')
-ax[0].scatter(E_random, gates_random, marker = 's', color = 'tab:red', label='Random states')
+ax[0].scatter(E_random, gates_random, marker = 's', color = 'tab:red', label='Random states',edgecolor='black',s=100)
+ax[0].scatter(E_basis, gates_basis, marker = 'p', color = 'tab:blue', label='Basis states',edgecolor='black',s=100)
 ax[0].set_xlabel('Ref. state energy')
-ax[0].set_ylabel('Circuit depth')
+ax[0].set_ylabel('Total operations')
 
 
-ax[1].scatter(overlap_basis, gates_basis, marker = 'p', color = 'tab:blue', label='Basis states')
-ax[1].scatter(overlap_random, gates_random, marker = 's', color = 'tab:red', label='Random states')
+ax[1].scatter(overlap_random, gates_random, marker = 's', color = 'tab:red', label='Random states',edgecolor='black',s=100)
+ax[1].scatter(overlap_basis, gates_basis, marker = 'p', color = 'tab:blue', label='Basis states',edgecolor='black',s=100)
 ax[1].set_xlabel('Ref. state overlap')
-ax[1].set_xscale('log')
-ax[1].legend()
+# ax[1].set_xscale('log')
+ax[1].legend(framealpha=1, frameon=True,edgecolor='black',fancybox=False, fontsize=12)
 fig.subplots_adjust(wspace=0.05)
-fig.suptitle(f'Reference state performance according to energy and overlap, {nucleus.name}',fontsize=18)
+fig.suptitle(r'Reference state performance according to energy and overlap, $^{10}$Be',fontsize=18)
 fig.savefig(f'./figures/{nucleus.name}/ADAPT_energy_overlap.pdf', bbox_inches='tight')
 
 plt.close()
@@ -67,7 +67,7 @@ plt.scatter(E_random, gates_random, c=overlap_random, cmap='viridis', marker='s'
 cbar = plt.colorbar()
 cbar.set_label('Ref. state overlap')
 plt.xlabel('Ref. state energy')
-plt.ylabel('Circuit depth')
-plt.title(f'Reference state performance according to energy and overlap, {nucleus.name}')
+plt.ylabel('Total operations')
+plt.title(f'Reference state performance according to energy and overlap, $^{8}$Be')
 plt.savefig(f'./figures/{nucleus.name}/ADAPT_energy_overlap_heatmap.pdf', bbox_inches='tight')
 plt.close()

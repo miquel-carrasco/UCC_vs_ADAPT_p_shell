@@ -462,7 +462,7 @@ def UCC_operator_ordering_and_params(nuc: str,
     ax[0].legend(framealpha=1, frameon=True,edgecolor='black',fancybox=False, fontsize=14)
     ax[1].legend(framealpha=1, frameon=True,edgecolor='black',fancybox=False, fontsize=14)
     fig.subplots_adjust(wspace=0.05)
-    fig.suptitle(f'UCC performance depending on the operator ordering and initial parameters, {nuc}',fontsize=18)
+    fig.suptitle(r'UCC performance depending on the operator ordering and initial parameters, $^{6}$Li',fontsize=18)
     
     fig.savefig(f'figures/{nuc}/UCC_operator_ordering_and_params_v{vec}.pdf',bbox_inches='tight')
 
@@ -470,7 +470,55 @@ def UCC_operator_ordering_and_params(nuc: str,
 
 if __name__ == '__main__':
 #    ADAPT_v_performance('Be8', 'L-BFGS-B',10, conv_criterion='Repeated op', test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced', n_times=0)
-    UCC_v_performance_2('N10', 'L-BFGS-B',10, n_times=50, test_threshold=1e-4, stop_at_threshold=True, pool_format='ReducedII')
+    # UCC_v_performance_2('N10', 'L-BFGS-B',10, n_times=50, test_threshold=1e-4, stop_at_threshold=True, pool_format='ReducedII')
     # UCC_operator_ordering_and_params('Li6', 'L-BFGS-B', 0, n_times=15, test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced')
+    Li6 = Nucleus('Li8', 1)
+    ref_state = np.eye(Li6.d_H)[1]
+    UCC_ansatz = UCCAnsatz(Li6, ref_state, pool_format='Reduced')
+    ADAPT_ansatz = ADAPTAnsatz(Li6, ref_state, pool_format='Reduced')
+    UCC_VQE = UCCVQE(UCC_ansatz, method='L-BFGS-B', test_threshold=1e-4, stop_at_threshold=True)
+    ADAPT_VQE = ADAPTVQE(ADAPT_ansatz, method='L-BFGS-B', test_threshold=1e-4, stop_at_threshold=True)
+    UCC_VQE.run()
+    ADAPT_VQE.run()
+
+    ucc_fcalls=np.array(UCC_VQE.fcalls)
+    ucc_oper=np.array(UCC_VQE.fcalls)*len(UCC_VQE.ansatz.operator_pool)
+    ucc_rel_error=UCC_VQE.rel_error
+
+    adapt_fcalls=np.array(ADAPT_VQE.fcalls)
+    adapt_oper=ADAPT_VQE.tot_operations
+    adapt_rel_error=ADAPT_VQE.rel_error
+    adapt_layers= ADAPT_VQE.tot_operators_layers
 
 
+    fig, ax = plt.subplots(1,2, figsize=(13,6), sharey=True)
+
+    ax[0].vlines(ADAPT_VQE.layer_fcalls, ymin=1e-8, ymax=10, colors='lightgrey', linestyles='dashed')
+    ax[0].hlines(1e-4, xmin=0, xmax=30000, colors='tab:green', alpha=0.5)
+    ax[0].fill_betweenx(y=[1e-8, 1e-4], x1=0, x2=(max([ucc_fcalls[-1], adapt_fcalls[-1]])+30), color='lightgrey', alpha=0.5)
+    ax[0].plot(ucc_fcalls, ucc_rel_error, label='UCC')
+    ax[0].plot(adapt_fcalls, adapt_rel_error, label='ADAPT')
+    ax[0].set_xlabel('Function calls')
+    ax[0].set_ylabel('Relative error with the exact g.s.')
+    ax[0].set_yscale('log')
+    # ax[0].set_xscale('log')
+    ax[0].set_ylim((min([adapt_rel_error[-1],ucc_rel_error[-1]])*0.1), 10)
+    ax[0].set_xlim(0, (max([ucc_fcalls[-1],adapt_fcalls[-1]])+30))
+
+
+    ax[1].vlines(adapt_layers, ymin=1e-8, ymax=10, colors='lightgrey', linestyles='dashed')
+    ax[1].hlines(1e-4, xmin=0, xmax=3000000, colors='tab:green', alpha=0.5)
+    ax[1].fill_betweenx(y=[1e-8, 1e-4], x1=0, x2=(max([ucc_oper[-1], adapt_oper[-1]])+30), color='lightgrey', alpha=0.5)
+    ax[1].plot(ucc_oper, ucc_rel_error, label='UCC')
+    ax[1].plot(adapt_oper, adapt_rel_error, label='ADAPT')
+    ax[1].set_xlabel('Total operations')
+    ax[0].text(100, 1e-3, 'Adapt layers', fontsize=13,
+             bbox=dict(boxstyle="square", facecolor='white', edgecolor='black'))
+    ax[1].set_ylim((min([adapt_rel_error[-1],ucc_rel_error[-1]])*0.1), 10)
+    ax[1].set_xlim(0, (max([ucc_oper[-1],adapt_oper[-1]])+1000))
+    ax[1].set_yscale('log')
+    # ax[1].set_xscale('log')
+    ax[1].legend(framealpha=1, frameon=True,edgecolor='black',fancybox=False)
+    fig.suptitle(r'UCC vs ADAPT performance, $^{8}$Li',fontsize=18)
+    plt.show()
+    

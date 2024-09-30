@@ -28,6 +28,7 @@ class VQE():
         self.energy = []
         self.rel_error = []
         self.success = False 
+        self.tot_operations = [0]
 
         try:
             self.method = method
@@ -133,6 +134,7 @@ class UCCVQE(VQE):
         self.fcalls.append(self.ansatz.fcalls)
         self.final_parameters = params
         # print(f' Energy: {E}')
+        self.tot_operations.append(self.fcalls[-1]*len(self.ansatz.operator_pool))
         if self.rel_error[-1] < self.test_threshold:
             self.success = True
             raise OptimizationConvergedException
@@ -202,7 +204,6 @@ class ADAPTVQE(VQE):
         self.rel_error.append(abs((E0 - self.ansatz.nucleus.eig_val[0])/self.ansatz.nucleus.eig_val[0]))
         self.fcalls.append(self.ansatz.fcalls)
         self.tot_operators+=self.fcalls[-1]*len(self.ansatz.added_operators)
-        self.tot_operators_layers.append(self.tot_operators)
         next_operator,next_gradient = self.ansatz.choose_operator()
         gradient_layers = []
         opt_grad_layers = []
@@ -212,6 +213,7 @@ class ADAPTVQE(VQE):
         self.state_layers.append(self.ansatz.ansatz)
 
         while self.ansatz.minimum == False and len(self.ansatz.added_operators)<self.max_layers:
+            self.tot_operators_layers.append(self.tot_operators)
             self.ansatz.added_operators.append(next_operator)
             gradient_layers.append(next_gradient)
             self.parameter_layers.append([])
@@ -378,8 +380,8 @@ class ADAPTVQE(VQE):
         self.rel_error.append(abs((E - self.ansatz.nucleus.eig_val[0])/self.ansatz.nucleus.eig_val[0]))
         self.fcalls.append(self.ansatz.fcalls)
         self.tot_operators+=(self.fcalls[-1]-self.fcalls[-2])*len(self.ansatz.added_operators)
-        self.tot_operators_layers.append(self.tot_operators)
         # print(f' Energy: {E}')
+        self.tot_operations.append(self.tot_operators)
         if self.rel_error[-1] < self.test_threshold and self.stop_at_threshold:
             self.success = True
             self.ansatz.minimum = True
