@@ -17,7 +17,7 @@ class VQE():
     def __init__(self, test_threshold: float = 1e-4,
                method: str = 'SLSQP',
                ftol: float = 1e-7,
-               gtol: float = 1e-3,
+               gtol: float = 1e-6,
                rhoend: float = 1e-5,
                stop_at_threshold: bool = True) -> None:
 
