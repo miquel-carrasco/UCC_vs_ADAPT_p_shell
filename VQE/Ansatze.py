@@ -62,14 +62,15 @@ class Ansatz():
         operators = []
         all_matrix = []
         for op in self.nucleus.operators:
-            matrix = op.matrix
-            repeated = False
-            for m in all_matrix:
-                if np.allclose(matrix, -m) or np.allclose(matrix, m):
-                    repeated = True
-            if  repeated == False:
-                operators.append(op)
-                all_matrix.append(matrix)
+            if np.allclose(op.matrix, np.zeros((self.nucleus.d_H, self.nucleus.d_H))) == False:
+                matrix = op.matrix
+                repeated = False
+                for m in all_matrix:
+                    if np.allclose(matrix, -m) or np.allclose(matrix, m):
+                        repeated = True
+                if  repeated == False:
+                    operators.append(op)
+                    all_matrix.append(matrix)
         return operators
     
     def reduce_operators_III(self) -> list:
