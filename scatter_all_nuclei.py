@@ -21,7 +21,7 @@ params = {'axes.linewidth': 1.4,
 plt.rcParams.update(params)
 
 nuc_list=['Li6','Li8','B8','Li10','N10','B10','Be6','He6','Be8','Be10','C10']
-x=[9,27.5,28.5,10,11,84,4.5,5.5,50,51,52]
+x=[8.5,27.25,28.75,10,11.5,84,4.25,5.75,49.5,51,52.5]
 colors=['tab:green','tab:red','tab:red','tab:green','tab:green','tab:brown','tab:blue','tab:blue','tab:orange','tab:orange','tab:orange']
 
 fig,ax = plt.subplots(1,2,figsize=(13,6))
@@ -30,7 +30,7 @@ all_data = []
 for i,nuc_name in enumerate(nuc_list):
     nuc = Nucleus(nuc_name,1)
     d_H = nuc.d_H
-    ucc_ansatz=UCCAnsatz(nuc,ref_state=np.eye(d_H)[0],pool_format='Reduced')
+    ucc_ansatz=UCCAnsatz(nuc,ref_state=np.eye(d_H)[0],pool_format='ReducedII')
 
     data_nuc = {'Nucleus': nuc.name, 'Dimension': d_H, 'UCC_depth': 0, 'ADAPT_depth': 0, 
                 'UCC_depth_std': 0, 'ADAPT_depth_std': 0,
@@ -45,9 +45,8 @@ for i,nuc_name in enumerate(nuc_list):
     ucc_depth_std = ucc_data[4].iloc[0]
     data_nuc['UCC_depth'] = ucc_depth
     data_nuc['UCC_depth_std'] = ucc_depth_std
-    print(ucc_depth,ucc_depth_std)
     
-    ax[0].errorbar(x[i],ucc_depth,yerr=ucc_depth_std,fmt='o',color=colors[i])
+    ax[0].errorbar(x[i],ucc_depth,yerr=ucc_depth_std,fmt='o',color=colors[i],markersize=10)
 
     adapt_folder = (f'./outputs/{nuc.name}/v_performance/ADAPT')
     adapt_file = os.listdir(adapt_folder)
@@ -63,7 +62,7 @@ for i,nuc_name in enumerate(nuc_list):
     data_nuc['ADAPT_depth_std'] = adapt_depth_std
     data_nuc['ADAPT_layers'] = adapt_layers
     data_nuc['ADAPT_layers_std'] = adapt_layers_std
-    ax[0].errorbar(x[i],adapt_depth,yerr=adapt_depth_std,marker='p',color=colors[i])
+    ax[0].errorbar(x[i],adapt_depth,yerr=adapt_depth_std,marker='p',color=colors[i],markersize=10)
     all_data.append(data_nuc)
 
 
@@ -72,15 +71,15 @@ ax[0].vlines([5,10,28,51,84],0,1e7,linestyles='dashed',color='black',alpha=0.5)
 ax[0].errorbar([],[],[],fmt='o',label='UCC',color='grey')
 ax[0].errorbar([],[],[],fmt='p',label='ADAPT',color='grey')
 
-ax[0].text(5,10,'$d_{\hat{H}}=5$',rotation=90,va='top',ha='right',fontsize=11)
-ax[0].text(10,10,'$d_{\hat{H}}=10$',rotation=90,va='top',ha='right',fontsize=11)
-ax[0].text(28,10,'$d_{\hat{H}}=28$',rotation=90,va='top',ha='right',fontsize=11)
-ax[0].text(51,10,'$d_{\hat{H}}=51$',rotation=90,va='top',ha='right',fontsize=11)
-ax[0].text(84,10,'$d_{\hat{H}}=84$',rotation=90,va='top',ha='right',fontsize=11)
+ax[0].text(5,10,'$d_{\mathcal{H}}=5$',rotation=90,va='top',ha='right',fontsize=11)
+ax[0].text(10,10,'$d_{\mathcal{H}}=10$',rotation=90,va='top',ha='right',fontsize=11)
+ax[0].text(28,10,'$d_{\mathcal{H}}=28$',rotation=90,va='top',ha='right',fontsize=11)
+ax[0].text(51,10,'$d_{\mathcal{H}}=51$',rotation=90,va='top',ha='right',fontsize=11)
+ax[0].text(84,10,'$d_{\mathcal{H}}=84$',rotation=90,va='top',ha='right',fontsize=11)
 
 
-ax[0].set_xlabel(r'$d_{\hat{H}}$')
-ax[0].set_ylabel('Circuit depth')
+ax[0].set_xlabel(r'$dim(\mathcal{H})$')
+ax[0].set_ylabel('Total operations')
 ax[0].set_yscale('log')
 ax[0].set_ylim(1,1e7)
 
@@ -91,21 +90,21 @@ df=pd.DataFrame(all_data)
 df.to_csv('./outputs/all_nuclei_ADAPT_UCC.csv',sep='\t',index=False)
 for n,nuc in enumerate(nuc_list):
     row = df[df['Nucleus']==nuc]
-    ax[1].errorbar(x[n], row['ADAPT_layers'], row['ADAPT_layers_std'],marker='p', color=colors[n])
-    ax[1].errorbar(x[n], row['UCC_layers'], marker='o', color=colors[n])
+    ax[1].errorbar(x[n], row['ADAPT_layers'], row['ADAPT_layers_std'],marker='p', color=colors[n],markersize=10)
+    ax[1].errorbar(x[n], row['UCC_layers'], marker='o', color=colors[n],markersize=10)
 
 
 ax[1].vlines([5,10,28,51,84],0,1000,linestyles='dashed',color='black',alpha=0.5)
 
-ax[1].set_xlabel(r'$d_{\hat{H}}$')
-ax[1].set_ylabel('Number of Layers')
+ax[1].set_xlabel(r'$dim(\mathcal{H})$')
+ax[1].set_ylabel(r'\emph{Ansatz} layers')
 ax[1].set_ylim(0,180)
 
-ax[1].text(5,100,'$d_{\hat{H}}=5$',rotation=90,va='top',ha='right',fontsize=11)
-ax[1].text(10,100,'$d_{\hat{H}}=10$',rotation=90,va='top',ha='right',fontsize=11)
-ax[1].text(28,100,'$d_{\hat{H}}=28$',rotation=90,va='top',ha='right',fontsize=11)
-ax[1].text(51,100,'$d_{\hat{H}}=51$',rotation=90,va='top',ha='right',fontsize=11)
-ax[1].text(84,100,'$d_{\hat{H}}=84$',rotation=90,va='top',ha='right',fontsize=11)
+ax[1].text(5,100,'$d_{\mathcal{H}}=5$',rotation=90,va='top',ha='right',fontsize=11)
+ax[1].text(10,100,'$d_{\mathcal{H}}=10$',rotation=90,va='top',ha='right',fontsize=11)
+ax[1].text(28,100,'$d_{\mathcal{H}}=28$',rotation=90,va='top',ha='right',fontsize=11)
+ax[1].text(51,100,'$d_{\mathcal{H}}=51$',rotation=90,va='top',ha='right',fontsize=11)
+ax[1].text(84,100,'$d_{\mathcal{H}}=84$',rotation=90,va='top',ha='right',fontsize=11)
 
 
 fig.savefig(f'./figures/all_nuclei_ADAPT_UCC.pdf', bbox_inches='tight')
