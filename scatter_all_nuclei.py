@@ -5,6 +5,7 @@ import numpy.linalg as la
 from VQE.Nucleus import Nucleus, TwoBodyExcitationOperator
 import pandas as pd
 from VQE.Ansatze import UCCAnsatz, ADAPTAnsatz
+from tqdm import tqdm
 
 params = {'axes.linewidth': 1.4,
          'axes.labelsize': 16,
@@ -27,7 +28,7 @@ colors=['tab:green','tab:red','tab:red','tab:green','tab:green','tab:brown','tab
 fig,ax = plt.subplots(1,2,figsize=(13,6))
 
 all_data = []
-for i,nuc_name in enumerate(nuc_list):
+for i,nuc_name in tqdm(enumerate(nuc_list)):
     nuc = Nucleus(nuc_name,1)
     d_H = nuc.d_H
     ucc_ansatz=UCCAnsatz(nuc,ref_state=np.eye(d_H)[0],pool_format='ReducedII')
@@ -71,11 +72,11 @@ ax[0].vlines([5,10,28,51,84],0,1e7,linestyles='dashed',color='black',alpha=0.5)
 ax[0].errorbar([],[],[],fmt='o',label='UCC',color='grey')
 ax[0].errorbar([],[],[],fmt='p',label='ADAPT',color='grey')
 
-ax[0].text(5,10,'$d_{\mathcal{H}}=5$',rotation=90,va='top',ha='right',fontsize=11)
-ax[0].text(10,10,'$d_{\mathcal{H}}=10$',rotation=90,va='top',ha='right',fontsize=11)
-ax[0].text(28,10,'$d_{\mathcal{H}}=28$',rotation=90,va='top',ha='right',fontsize=11)
-ax[0].text(51,10,'$d_{\mathcal{H}}=51$',rotation=90,va='top',ha='right',fontsize=11)
-ax[0].text(84,10,'$d_{\mathcal{H}}=84$',rotation=90,va='top',ha='right',fontsize=11)
+ax[0].text(5,10,r'$d_{\mathcal{H}}=5$',rotation=90,va='top',ha='right',fontsize=11)
+ax[0].text(10,10,r'$d_{\mathcal{H}}=10$',rotation=90,va='top',ha='right',fontsize=11)
+ax[0].text(28,10,r'$d_{\mathcal{H}}=28$',rotation=90,va='top',ha='right',fontsize=11)
+ax[0].text(51,10,r'$d_{\mathcal{H}}=51$',rotation=90,va='top',ha='right',fontsize=11)
+ax[0].text(84,10,r'$d_{\mathcal{H}}=84$',rotation=90,va='top',ha='right',fontsize=11)
 
 
 ax[0].set_xlabel(r'$dim(\mathcal{H})$')
@@ -100,11 +101,11 @@ ax[1].set_xlabel(r'$dim(\mathcal{H})$')
 ax[1].set_ylabel(r'\emph{Ansatz} layers')
 ax[1].set_ylim(0,180)
 
-ax[1].text(5,100,'$d_{\mathcal{H}}=5$',rotation=90,va='top',ha='right',fontsize=11)
-ax[1].text(10,100,'$d_{\mathcal{H}}=10$',rotation=90,va='top',ha='right',fontsize=11)
-ax[1].text(28,100,'$d_{\mathcal{H}}=28$',rotation=90,va='top',ha='right',fontsize=11)
-ax[1].text(51,100,'$d_{\mathcal{H}}=51$',rotation=90,va='top',ha='right',fontsize=11)
-ax[1].text(84,100,'$d_{\mathcal{H}}=84$',rotation=90,va='top',ha='right',fontsize=11)
+ax[1].text(5,100,r'$d_{\mathcal{H}}=5$',rotation=90,va='top',ha='right',fontsize=11)
+ax[1].text(10,100,r'$d_{\mathcal{H}}=10$',rotation=90,va='top',ha='right',fontsize=11)
+ax[1].text(28,100,r'$d_{\mathcal{H}}=28$',rotation=90,va='top',ha='right',fontsize=11)
+ax[1].text(51,100,r'$d_{\mathcal{H}}=51$',rotation=90,va='top',ha='right',fontsize=11)
+ax[1].text(84,100,r'$d_{\mathcal{H}}=84$',rotation=90,va='top',ha='right',fontsize=11)
 
 
 fig.savefig(f'./figures/all_nuclei_ADAPT_UCC.pdf', bbox_inches='tight')
