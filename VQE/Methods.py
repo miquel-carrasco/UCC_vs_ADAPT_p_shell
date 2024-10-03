@@ -212,10 +212,8 @@ class ADAPTVQE(VQE):
         fcalls_layers = [self.fcalls[-1]]
         self.state_layers.append(self.ansatz.ansatz)
 
-        # print("LAYER 0")
-        # print('Energy: ',energy_layers[-1])
-        # print('Operators: ',self.ansatz.added_operators[-1].ijkl)
-        # print('Gradient: ',gradient_layers[-1])
+        print("LAYER 0")
+        print('Energy: ',energy_layers[-1])
 
         while self.ansatz.minimum == False and len(self.ansatz.added_operators)<self.max_layers:
             self.tot_operators_layers.append(self.tot_operators)
@@ -253,11 +251,11 @@ class ADAPTVQE(VQE):
                     self.ansatz.minimum = True
                 else:
                     energy_layers.append(self.energy[-1])
-                    # print("LAYER ",len(energy_layers)-1)
-                    # print('Energy: ',energy_layers[-1])
-                    # print('Operators: ',self.ansatz.added_operators[-1].ijkl)
-                    # print('Gradient: ',gradient_layers[-1])
-                    # print("Parameters: ",self.parameters)
+                    print("LAYER ",len(energy_layers)-1)
+                    print('Energy: ',energy_layers[-1])
+                    print('Operators: ',self.ansatz.added_operators[-1].ijkl)
+                    print('Gradient: ',gradient_layers[-1])
+                    print("Parameters: ",self.parameters)
                     # print("Tot operations: ", self.tot_operators)
                     # print("Fcalls: ", nf)
                     rel_error_layers.append(self.rel_error[-1])
