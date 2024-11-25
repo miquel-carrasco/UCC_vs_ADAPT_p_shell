@@ -8,13 +8,13 @@ from VQE.Ansatze import UCCAnsatz, ADAPTAnsatz
 from tqdm import tqdm
 
 params = {'axes.linewidth': 1.4,
-         'axes.labelsize': 16,
-         'axes.titlesize': 18,
+         'axes.labelsize': 15,
+         'axes.titlesize': 16,
          'axes.linewidth': 1.5,
          'lines.markeredgecolor': "black",
      	'lines.linewidth': 1.5,
-         'xtick.labelsize': 12,
-         'ytick.labelsize': 12,
+         'xtick.labelsize': 11,
+         'ytick.labelsize': 11,
          "text.usetex": True,
          "font.family": "serif",
          "font.serif": ["Palatino"]
@@ -25,7 +25,7 @@ nuc_list=['Li6','Li8','B8','Li10','N10','B10','Be6','He6','Be8','Be10','C10']
 x=[8.5,27.25,28.75,10,11.5,84,4.25,5.75,49.5,51,52.5]
 colors=['tab:green','tab:red','tab:red','tab:green','tab:green','tab:brown','tab:blue','tab:blue','tab:orange','tab:orange','tab:orange']
 
-fig,ax = plt.subplots(1,2,figsize=(13,6))
+fig,ax = plt.subplots(1,2,figsize=(11,6))
 
 all_data = []
 for i,nuc_name in tqdm(enumerate(nuc_list)):

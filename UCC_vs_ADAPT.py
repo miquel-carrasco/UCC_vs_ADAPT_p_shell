@@ -1,5 +1,6 @@
 import numpy as np
 from scipy import optimize
+import scipy.sparse
 from tqdm import tqdm
 from time import perf_counter
 import matplotlib.pyplot as plt
@@ -8,6 +9,7 @@ import os
 from tqdm import tqdm
 import pandas as pd
 import concurrent.futures
+import scipy
 
 from VQE.Nucleus import Nucleus
 from VQE.Ansatze import UCCAnsatz, ADAPTAnsatz
@@ -470,12 +472,27 @@ def UCC_operator_ordering_and_params(nuc: str,
 
 if __name__ == '__main__':
 #    ADAPT_v_performance('B10', 'L-BFGS-B',10, conv_criterion='Repeated op', test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced', n_times=50)
-    UCC_v_performance_2('B8', 'L-BFGS-B',28, n_times=100, test_threshold=1e-4, stop_at_threshold=True, pool_format='ReducedII')
+    # UCC_v_performance_2('B8', 'L-BFGS-B',28, n_times=100, test_threshold=1e-4, stop_at_threshold=True, pool_format='ReducedII')
     # UCC_operator_ordering_and_params('Li6', 'L-BFGS-B', 0, n_times=15, test_threshold=1e-4, stop_at_threshold=True, pool_format='Reduced')
     # nuc_list=['Li6','Li8','B8','Li10','N10','B10','Be6','He6','Be8','Be10','C10']
     # for nucle in nuc_list:
     #     nuc = Nucleus(nucle, 1)
     #     ref_state = np.eye(nuc.d_H)[0]
-    #     ansatz = UCCAnsatz(nuc, ref_state, pool_format='Reduced')
+    #     ansatz = UCCAnsatz(nuc, ref_state, pool_format='ReducedII')
 
     #     print(nucle, len(ansatz.operator_pool))
+
+    nuc = Nucleus('Be6', 1)
+    ansatz = UCCAnsatz(nuc, np.eye(nuc.d_H)[0], pool_format='ReducedII')
+    for op in ansatz.operator_pool:
+        print(op.ijkl)
+        print(scipy.sparse.coo_matrix(op.matrix))
+
+    # nuc = Nucleus('Be10', 1)
+    # ref_state = np.eye(nuc.d_H)[0]
+    # ansatz = ADAPTAnsatz(nuc, ref_state, pool_format='ReducedII')
+    # adapt_vqe = ADAPTVQE(ansatz, method='BFGS', test_threshold=1e-6, stop_at_threshold=True, conv_criterion='Repeated op')
+    # print(nuc.eig_val[0])
+    # adapt_vqe.run()
+    # print([scipy.sparse.coo_matrix(op.matrix) for op in ansatz.operator_pool if op.ijkl == [8,10,10,11]][0])
+    # print(len(ansatz.operator_pool))

@@ -33,7 +33,7 @@ optimizers=[]
 dodge=np.linspace(-0.3,0.3,len(files))
 markers=['o','p','v','s','X']
 
-fig, ax1 = plt.subplots(figsize=(9,6))
+fig, ax1 = plt.subplots(figsize=(9,4))
 ax2=ax1.twinx()
 
 infidelity=[]

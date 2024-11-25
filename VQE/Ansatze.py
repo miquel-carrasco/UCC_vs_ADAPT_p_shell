@@ -236,4 +236,8 @@ class ADAPTAnsatz(Ansatz):
         ijkl = [op.ijkl for op in self.operator_pool]
         max_gradient = max(gradients)
         max_operator = self.operator_pool[gradients.index(max_gradient)]
+        # if len(self.added_operators) == 2:
+        #     for i,op in enumerate(self.operator_pool):
+        #         print(op.ijkl, gradients[i])
+            
         return max_operator,max_gradient

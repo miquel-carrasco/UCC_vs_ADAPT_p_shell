@@ -6,13 +6,13 @@ import numpy.linalg as la
 from VQE.Nucleus import Nucleus
 
 params = {'axes.linewidth': 1.4,
-         'axes.labelsize': 16,
-         'axes.titlesize': 18,
+         'axes.labelsize': 15,
+         'axes.titlesize': 16,
          'axes.linewidth': 1.5,
          'lines.markeredgecolor': "black",
      	'lines.linewidth': 1.5,
          'xtick.labelsize': 11,
-         'ytick.labelsize': 13,
+         'ytick.labelsize': 11,
          "text.usetex": True,
          "font.family": "serif",
          "font.serif": ["Palatino"]
@@ -41,7 +41,7 @@ overlap_random = random_df['Overlap']
 gates_random = random_df['Gates']
 
 ### FIGURE 1 ###
-fig, ax = plt.subplots(1,2, figsize=(13,6), sharey=True)
+fig, ax = plt.subplots(1,2, figsize=(15,6), sharey=True)
 ax[0].scatter(E_random, gates_random, marker = 's', color = 'tab:red', label='Random states',edgecolor='black',s=100)
 ax[0].scatter(E_basis, gates_basis, marker = 'p', color = 'tab:blue', label='Basis states',edgecolor='black',s=100)
 ax[0].set_xlabel('Ref. state energy')

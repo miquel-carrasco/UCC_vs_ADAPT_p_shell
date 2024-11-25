@@ -11,9 +11,9 @@ from numba import jit, cuda
 class TwoBodyExcitationOperator():
     "Class to define an antihermitian operator corresponding to a two-body excitation."
 
-    def __init__(self, label: int, H2b: float, ijkl: list, matrix_og, matrix, commutator: np.ndarray) -> None:
+    def __init__(self, label: int, ijkl: list, matrix_og, matrix, commutator: np.ndarray) -> None:
         self.label = label
-        self.H2b = H2b
+        # self.H2b = H2b
         self.ijkl = ijkl
         self.matrix = matrix
         self.commutator = commutator
@@ -87,25 +87,28 @@ class Nucleus():
         H2b_path = os.path.join(self.data_folder, f'H2b.dat')
         H2b_data = np.loadtxt(H2b_path, dtype=str)
         label = 1
-        for h in H2b_data:
-            indices = [int(h[1]), int(h[2]), int(h[3]), int(h[4])]
-            matrix_og = np.zeros((self.d_H, self.d_H))
-            operator_matrix = np.zeros((self.d_H, self.d_H))
-            for state in self.states:
-                new_state, parity = self.excitation_numbers_2(state, indices)
-                if new_state in self.states:
-                    H2b = float(h[0])
-                    column = self.states.index(state)
-                    row = self.states.index(new_state)
-                    this_excitation = np.zeros((self.d_H, self.d_H))
-                    this_excitation[row, column] = parity
-                    matrix_og += this_excitation
-                    operator_matrix += this_excitation
-                    operator_matrix += -this_excitation.T
-                    commutator = self.H.dot(operator_matrix) - operator_matrix.dot(self.H)
-            if np.allclose(matrix_og, np.zeros((self.d_H, self.d_H))) == False:
-                operators.append(TwoBodyExcitationOperator(label, H2b, indices, matrix_og, operator_matrix, commutator))
-                label += 1
+        for i in range(11):
+            for j in range(i+1, 12):
+                for k in range(11):
+                    for l in range(k+1, 12):
+                        indices = [i, j, k, l]
+                        matrix_og = np.zeros((self.d_H, self.d_H))
+                        operator_matrix = np.zeros((self.d_H, self.d_H))
+                        for state in self.states:
+                            new_state, parity = self.excitation_numbers_2(state, indices)
+                            if new_state in self.states:
+                                # H2b = float(h[0])
+                                column = self.states.index(state)
+                                row = self.states.index(new_state)
+                                this_excitation = np.zeros((self.d_H, self.d_H))
+                                this_excitation[row, column] = parity
+                                matrix_og += this_excitation
+                                operator_matrix += this_excitation
+                                operator_matrix += -this_excitation.T
+                                commutator = self.H.dot(operator_matrix) - operator_matrix.dot(self.H)
+                        if np.allclose(matrix_og, np.zeros((self.d_H, self.d_H))) == False:
+                            operators.append(TwoBodyExcitationOperator(label, indices, matrix_og, operator_matrix, commutator))
+                            label += 1
         
         return operators
 

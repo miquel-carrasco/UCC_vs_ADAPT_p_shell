@@ -6,13 +6,13 @@ from VQE.Nucleus import Nucleus
 import pandas as pd
 
 params = {'axes.linewidth': 1.4,
-         'axes.labelsize': 16,
-         'axes.titlesize': 18,
+         'axes.labelsize': 15,
+         'axes.titlesize': 16,
          'axes.linewidth': 1.5,
          'lines.markeredgecolor': "black",
      	'lines.linewidth': 1.5,
          'xtick.labelsize': 11,
-         'ytick.labelsize': 13,
+         'ytick.labelsize': 11,
          "text.usetex": True,
          "font.family": "serif",
          "font.serif": ["Palatino"]
@@ -27,7 +27,7 @@ runs=50
 
 colors=['tab:blue','tab:orange','tab:green','tab:red']
 
-fig, ax1 = plt.subplots(figsize=(10,6))
+fig, ax1 = plt.subplots(figsize=(11,6))
 ax2=ax1.twinx()
 
 x = [f'$v_{{{i}}}$' for i in np.arange(d_H)]
@@ -41,7 +41,7 @@ for i in range(d_H):
 ax1.bar(x[:-1],infidelity,alpha=0.5,color='grey',label='Infidelity',zorder=1,edgecolor='black')
 
 
-UCC_folder = (f'./outputs/{nucleus.name}/v_performance/UCC_Reduced')
+UCC_folder = (f'./outputs/{nucleus.name}/v_performance/UCC_ReducedII')
 ucc_file = os.listdir(UCC_folder)
 ucc_file = [f for f in ucc_file if f'L-BFGS-B' in f]
 ucc_data = pd.read_csv(os.path.join(UCC_folder,ucc_file[0]),sep='\t',header=None)

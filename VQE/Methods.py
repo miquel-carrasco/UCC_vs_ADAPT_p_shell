@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from VQE.Nucleus import Nucleus, TwoBodyExcitationOperator
 from VQE.Ansatze import UCCAnsatz, ADAPTAnsatz
 from time import perf_counter
+import scipy
 
 class OptimizationConvergedException(Exception):
     pass
@@ -17,7 +18,7 @@ class VQE():
     def __init__(self, test_threshold: float = 1e-4,
                method: str = 'SLSQP',
                ftol: float = 1e-7,
-               gtol: float = 1e-6,
+               gtol: float = 1e-5,
                rhoend: float = 1e-5,
                stop_at_threshold: bool = True) -> None:
 
@@ -204,6 +205,7 @@ class ADAPTVQE(VQE):
         self.rel_error.append(abs((E0 - self.ansatz.nucleus.eig_val[0])/self.ansatz.nucleus.eig_val[0]))
         self.fcalls.append(self.ansatz.fcalls)
         self.tot_operators+=self.fcalls[-1]*len(self.ansatz.added_operators)
+        print('Initial Energy: ',E0)
         next_operator,next_gradient = self.ansatz.choose_operator()
         gradient_layers = []
         opt_grad_layers = []
@@ -211,9 +213,6 @@ class ADAPTVQE(VQE):
         rel_error_layers = [self.rel_error[-1]]
         fcalls_layers = [self.fcalls[-1]]
         self.state_layers.append(self.ansatz.ansatz)
-
-        print("LAYER 0")
-        print('Energy: ',energy_layers[-1])
 
         while self.ansatz.minimum == False and len(self.ansatz.added_operators)<self.max_layers:
             self.tot_operators_layers.append(self.tot_operators)
@@ -244,6 +243,8 @@ class ADAPTVQE(VQE):
                     opt_grad_layers.append(opt_grad)
                 self.ansatz.count_fcalls = False
                 self.ansatz.ansatz = self.ansatz.build_ansatz(self.parameters)
+                # print("Tot operations: ", self.tot_operators)
+                # print("Fcalls: ", nf)
                 next_operator,next_gradient = self.ansatz.choose_operator()
                 if self.conv_criterion == 'Repeated op' and next_operator == self.ansatz.added_operators[-1]:
                     self.ansatz.minimum = True
@@ -251,25 +252,36 @@ class ADAPTVQE(VQE):
                     self.ansatz.minimum = True
                 else:
                     energy_layers.append(self.energy[-1])
-                    print("LAYER ",len(energy_layers)-1)
-                    print('Energy: ',energy_layers[-1])
-                    print('Operators: ',self.ansatz.added_operators[-1].ijkl)
-                    print('Gradient: ',gradient_layers[-1])
-                    print("Parameters: ",self.parameters)
-                    # print("Tot operations: ", self.tot_operators)
-                    # print("Fcalls: ", nf)
                     rel_error_layers.append(self.rel_error[-1])
                     fcalls_layers.append(self.fcalls[-1])
+                print("LAYER ",len(energy_layers)-2)
+                print('Energy: ',energy_layers[-1])
+                print('Operators: ',self.ansatz.added_operators[-1].ijkl)
+                print(scipy.sparse.coo_matrix(self.ansatz.added_operators[-1].matrix))
+                print('Gradient: ',gradient_layers[-1])
+                print("Parameters: ",self.parameters)
             except OptimizationConvergedException:
                 if self.return_data:
                     opt_grad_layers.append('Manually stopped')
             self.state_layers.append(self.ansatz.ansatz)
             for a in range(len(self.parameters)):
                 self.parameter_layers[a].append(self.parameters[a])
+            
+            rel_error = abs((self.energy[-1] - self.ansatz.nucleus.eig_val[0])/self.ansatz.nucleus.eig_val[0])
+            print(rel_error)
+            if rel_error < self.test_threshold and self.stop_at_threshold:
+                self.success = True
+                self.ansatz.minimum = True
+                break
 
         energy_layers.append(self.energy[-1])
         rel_error_layers.append(self.rel_error[-1])
         fcalls_layers.append(self.fcalls[-1])
+        print("LAYER ",len(energy_layers)-2)
+        print('Energy: ',energy_layers[-1])
+        print('Operators: ',self.ansatz.added_operators[-1].ijkl)
+        print('Gradient: ',gradient_layers[-1])
+        print("Parameters: ",self.parameters)
         if self.conv_criterion == 'None' and self.ansatz.minimum == False:
             self.ansatz.minimum = True
             opt_grad_layers.append('Manually stopped')
