@@ -1,71 +1,98 @@
 import numpy as np
 from numpy import linalg as la
 import os
-import warnings
-import scipy
-from scipy.sparse import lil_matrix, csc_matrix
-from scipy.sparse.linalg import eigsh
-import scipy.sparse
-from numba import jit, cuda
 
 class TwoBodyExcitationOperator():
-    "Class to define an antihermitian operator corresponding to a two-body excitation."
+    """
+    Class to define an antihermitian operator corresponding to a two-body excitation. The data of the operator
+    is taken from already processed files in the data folder for each nucleus.
+    
+    Attributes:
 
-    def __init__(self, label: int, ijkl: list, matrix_og, matrix, commutator: np.ndarray) -> None:
+    """
+
+    def __init__(self, 
+                 label: int,
+                 H2b: float, 
+                 ijkl: list, 
+                 matrix: np.ndarray, 
+                 commutator: np.ndarray) -> None:
+        """
+        Initializes the operator instance, according to its pre-generated data.
+
+        Args:
+            label (int): Label of the operator (as it appears on the data files).
+            H2b (float): Value of the amplitude of the operator in the hamiltonian.
+            ijkl (list): Indices of the two body excitation: (a'_i a'_j a_k a_l).
+            matrix (np.ndarray): Matrix representation of the operator.
+            commutator (np.ndarray): Commutator of the operator with the Hamiltonian ([H, T]).
+        """
         self.label = label
-        # self.H2b = H2b
+        self.H2b = H2b
         self.ijkl = ijkl
         self.matrix = matrix
         self.commutator = commutator
-        self.matrix_og = matrix_og
         
 
 class Nucleus():
-    """Class to define a nucleus with its Hamiltonian, eigenvalues and eigenvectors, 
-        angular momentum and other properties."""
+    """
+    Class to define a nucleus with its Hamiltonian, eigenvalues and eigenvectors, 
+    angular momentum and other properties.
+        
+    Attributes:
+        name (str): Name of the nucleus.
+        data_folder (str): Path to the folder with the data of the nucleus.
+        states (list): List of the basis states of the nucleus.
+        H (csc_matrix): Hamiltonian matrix of the nucleus.
+        d_H (int): Dimension of the Hamiltonian matrix.
+        eig_val (np.ndarray): Eigenvalues of the Hamiltonian.
+        eig_vec (np.ndarray): Eigenvectors of the Hamiltonian.
+        operators (list): List of all antihermitian operators corresponding to two-body excitations.
 
-    def __init__(self, nuc_name: str, J: int, M: int=0) -> None:
-        "Initializes the nucleus with its name, angular momentum and magnetic quantum number."
+    Methods:
+        hamiltonian_matrix: Returns the hamiltonian matrix of the nucleus.
+        states_list: Returns the list of states of the many-body basis according to the indices of the single-particle states.
+        operators_list: Returns the list of ALL antihermitian operators corresponding to two-body excitations.
+        excitation_numbers: Returns the new state and parity of the excitation after the action of a two-body excitation operator
+
+    """
+
+    def __init__(self, nuc_name: str) -> None:
+        """Initializes the nucleus with its name, angular momentum and magnetic quantum number.
+        
+        Args:
+            nuc_name (str): Name of the nucleus.
+        """
         self.name = nuc_name
-        self.J = J
-        self.M = M
         self.data_folder = os.path.join(f'nuclei/{self.name}_data')
-        self.states = self.states()
+        self.states = self.states_list()
         self.H = self.hamiltonian_matrix()
+        self.d_H = self.H.shape[0]
         self.eig_val, self.eig_vec = la.eigh(self.H)
-        self.operators = self.operators_list_2()
+        self.operators = self.operators_list()
     
 
-    def hamiltonian_matrix(self) -> csc_matrix:
-        "Returns the hamiltonian matrix of the nucleus."
+    def hamiltonian_matrix(self) -> np.ndarray:
+        """
+        Returns the hamiltonian matrix of the nucleus.
+        
+        Returns:
+            np.ndarray: Hamiltonian matrix.
+        """
         file_path = os.path.join(self.data_folder, f'{self.name}.dat')
         H = np.zeros((self.d_H, self.d_H))
         H_data = np.loadtxt(file_path,delimiter=' ', dtype=float)
         for line in H_data:
             H[int(line[0]), int(line[1])] = line[2]
         return H
-
-    def hamiltonian_matrix_2(self) -> csc_matrix:
-
-        file_path = os.path.join(self.data_folder, 'sp.dat')
-        H = np.zeros((self.d_H, self.d_H))
-        eps = np.zeros(12)
-        f = open(file_path, 'r')
-        f.readline()
-        for i in range(12):
-            eps[i] = f.readline().strip().split()[-1]
-        
-        for a, vec in enumerate(self.states):
-            for i in range(len(vec)):
-                H[a, a] += eps[vec[i]]
-
-        for op in self.operators:
-            H += 1/4 * op.H2b * op.matrix_og
-
-        return H
     
-    def states(self) -> list:
+    def states_list(self) -> list:
+        """
+        Returns the list of states of the many-body basis according to the indices of the single-particle states.
 
+        Returns:
+            list: List of the basis states.
+        """
         states = []
         mb_path = os.path.join(self.data_folder, f'mb_basis_2.dat')
         file = open(mb_path, 'r')
@@ -78,85 +105,18 @@ class Nucleus():
                 sp_labels.append(int(label))
             states.append(tuple(sp_labels))
         return states
+
     
-
-    def operators_list_2(self) -> list:
-
-        operators = []
-
-        H2b_path = os.path.join(self.data_folder, f'H2b.dat')
-        H2b_data = np.loadtxt(H2b_path, dtype=str)
-        label = 1
-        for i in range(11):
-            for j in range(i+1, 12):
-                for k in range(11):
-                    for l in range(k+1, 12):
-                        indices = [i, j, k, l]
-                        matrix_og = np.zeros((self.d_H, self.d_H))
-                        operator_matrix = np.zeros((self.d_H, self.d_H))
-                        for state in self.states:
-                            new_state, parity = self.excitation_numbers_2(state, indices)
-                            if new_state in self.states:
-                                # H2b = float(h[0])
-                                column = self.states.index(state)
-                                row = self.states.index(new_state)
-                                this_excitation = np.zeros((self.d_H, self.d_H))
-                                this_excitation[row, column] = parity
-                                matrix_og += this_excitation
-                                operator_matrix += this_excitation
-                                operator_matrix += -this_excitation.T
-                                commutator = self.H.dot(operator_matrix) - operator_matrix.dot(self.H)
-                        if np.allclose(matrix_og, np.zeros((self.d_H, self.d_H))) == False:
-                            operators.append(TwoBodyExcitationOperator(label, indices, matrix_og, operator_matrix, commutator))
-                            label += 1
-        
-        return operators
-
     def operators_list(self) -> list:
-        """Returns the list of ALL antihermitian operators corresponding
-            to two-body excitations. Each operator is represented by a TwoBodyExcitationOperator object."""
-        
-        matrices_folder = os.path.join(self.data_folder, 'mats')
+        """
+        Returns the list of ALL antihermitian operators corresponding to two-body excitations.
+        The indices of the avaliable operators are taken from the data files of the nucleus, since it only includes
+        those operators that respect the selection rules.
 
-        H2b_path = os.path.join(self.data_folder, f'H2b.dat')
-        H2b_data = np.loadtxt(H2b_path, dtype=str)
-        values = []
-        indices = []
-        for h in H2b_data:
-            values.append(float(h[0]))
-            indices.append(h[1] + ' ' + h[2] + ' ' + h[3] + ' ' + h[4])
-        H2b_dictionary = dict(zip(indices, values))
-
-        labels_path = os.path.join(self.data_folder, 'op_labels.dat')
-        labels_data = np.loadtxt(labels_path, dtype=str)
+        Returns:
+            list[TwoBodyExcitationOperators]: List of antihermitian operators, as TwoBodyExcitationOperator instances.        
+        """
         operators = []
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            for labels in labels_data:
-                label = int(labels[0])
-                i = int(labels[1].replace('^','').replace('[','').replace(']',''))
-                j = int(labels[2].replace('^','').replace('[','').replace(']',''))
-                k = int(labels[3].replace('^','').replace('[','').replace(']',''))
-                l = int(labels[4].replace('^','').replace('[','').replace(']',''))
-                ijkl=[i,j,k,l]
-                
-                matrix_path = os.path.join(matrices_folder, f'mat{label}.dat')
-                matrix_data = np.loadtxt(matrix_path)
-                if len(matrix_data) != 0:
-                    operator_matrix = np.zeros((self.d_H, self.d_H))
-                    for a in matrix_data:
-                        operator_matrix[int(a[0]), int(a[1])] = a[2]
-                    H2b = H2b_dictionary[f'{ijkl[0]} {ijkl[1]} {ijkl[2]} {ijkl[3]}']
-                    commutator = self.H.dot(operator_matrix)- operator_matrix.dot(self.H)
-                    operators.append(TwoBodyExcitationOperator(label, H2b, ijkl, operator_matrix, commutator))
-
-        return operators
-    
-    def sparse_operators(self) -> list:
-        "Returns the list of operators with sparse matrices."
-
-        operators = []
-
         H2b_path = os.path.join(self.data_folder, f'H2b.dat')
         H2b_data = np.loadtxt(H2b_path, dtype=str)
         label = 1
@@ -165,24 +125,34 @@ class Nucleus():
             if indices[0] < indices[1] and indices[2] < indices[3]:
                 operator_matrix = np.zeros((self.d_H, self.d_H))
                 for state in self.states:
-                    new_state = self.excitation_numbers(state, indices)
+                    new_state, parity = self.excitation_numbers(state, indices)
                     if new_state in self.states:
                         H2b = float(h[0])
                         column = self.states.index(state)
                         row = self.states.index(new_state)
                         this_excitation = np.zeros((self.d_H, self.d_H))
-                        this_excitation[row, column] = 1
+                        this_excitation[row, column] = parity
                         operator_matrix += this_excitation
                         operator_matrix += -this_excitation.T
                         commutator = self.H.dot(operator_matrix) - operator_matrix.dot(self.H)
                 if np.allclose(operator_matrix, np.zeros((self.d_H, self.d_H))) == False:
                     operators.append(TwoBodyExcitationOperator(label, H2b, indices, operator_matrix, commutator))
                     label += 1
-        
         return operators
-    
-    def excitation_numbers_2(self, state: tuple, indices: list) -> tuple:
 
+    
+    def excitation_numbers(self, state: tuple, indices: list) -> tuple:
+        """
+        Returns the new state and parity of the excitation after the action of a two-body excitation operator
+        on a state of the basis.
+
+        Args:
+            state (tuple): Indices of the single-particle states of a given state of the many-body basis.
+            indices (list): Indices of the two-body excitation: (a_i* a_j* a_k a_l).
+        Returns:
+            tuple: New state after the excitation.  
+            int: Parity of the excitation.      
+        """
         parity = 1
         if indices[2] in state and indices[3] in state:
             new_state = list(state)
@@ -196,27 +166,3 @@ class Nucleus():
             return tuple(new_state), parity
         else:
             return tuple(), 0
-
-
-    def excitation_numbers(self, state: tuple, indices: list) -> tuple:
-
-        if indices[2] in state and indices[3] in state:
-            new_state = list(state)
-            for i in range(len(new_state)):
-                if new_state[i]==indices[2]:
-                    new_state[i] = indices[0]
-                    break
-            for j in range(len(new_state)):
-                if new_state[j]==indices[3]:
-                    new_state[j] = indices[1]
-                    break
-            new_state.sort()
-            return tuple(new_state)
-        else:
-            return tuple()
-            
-            
-if __name__=='__main__':
-    Li6 = Nucleus('Li6', 1)
-
-    print(len(Li6.operators))
