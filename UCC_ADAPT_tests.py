@@ -57,4 +57,5 @@ def ADAPT_minimization(nucleus: str,
         return None
 
 if __name__=="__main__":
-    data = ADAPT_minimization("Li6", ref_state = 4, opt_method='L-BFGS-B', return_data=True)
+    UCC_minimization("Li6", ref_state = 4)
+    ADAPT_minimization("Li6", ref_state = 4)
