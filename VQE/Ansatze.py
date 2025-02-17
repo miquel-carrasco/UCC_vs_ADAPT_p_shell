@@ -249,9 +249,4 @@ class ADAPTAnsatz(Ansatz):
         gradients = [abs(2*(sigma.conj().T.dot(op.matrix.dot(self.ansatz))).real) for op in self.operator_pool]
         max_gradient = max(gradients)
         max_operator = self.operator_pool[gradients.index(max_gradient)]
-        if len(self.added_operators) == 1:
-            op = [o for o in self.operator_pool if o.ijkl == [3, 6, 4, 8]][0]
-            gradient = abs(2*(sigma.conj().T.dot(op.matrix.dot(self.ansatz))).real)
-            print(gradient)
-            print(max_gradient)
         return max_operator,max_gradient

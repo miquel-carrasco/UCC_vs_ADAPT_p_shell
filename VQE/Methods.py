@@ -125,11 +125,11 @@ class UCCVQE(VQE):
             float: Final minimized energy of the system.
         """
 
-        print("\n\n")
-        print(" --------------------------------------------------------------------------")
-        print("                              UCC for ", self.nucleus.name)                 
-        print(" --------------------------------------------------------------------------")
-        print('\n\n')
+        # print("\n\n")
+        # print(" --------------------------------------------------------------------------")
+        # print("                              UCC for ", self.nucleus.name)                 
+        # print(" --------------------------------------------------------------------------")
+        # print('\n\n')
 
         self.ansatz.fcalls = 0
         self.ansatz.count_fcalls = False
@@ -143,8 +143,8 @@ class UCCVQE(VQE):
         except OptimizationConvergedException:
             pass
         self.ansatz.count_fcalls = False
-        print(f'The UCC converged after {self.tot_operations[-1]} operations')
-        print(f'The final relative error is {self.rel_error[-1]}')
+        # print(f'The UCC converged after {self.tot_operations[-1]} operations')
+        # print(f'The final relative error is {self.rel_error[-1]}')
     
 
     def callback(self, params: list) -> None:
@@ -162,7 +162,7 @@ class UCCVQE(VQE):
         self.rel_error.append(abs((E - self.ansatz.nucleus.eig_val[0])/self.ansatz.nucleus.eig_val[0]))
         self.fcalls.append(self.ansatz.fcalls)
         self.final_parameters = params
-        print(f' Energy: {E}')
+        # print(f' Energy: {E}')
         self.tot_operations.append(self.fcalls[-1]*len(self.ansatz.operator_pool))
         if self.rel_error[-1] < self.test_threshold:
             self.success = True
